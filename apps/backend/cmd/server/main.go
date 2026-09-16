@@ -12,22 +12,22 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Azmi010/my-drive/apps/backend/internal/auth"
 	"github.com/Azmi010/my-drive/apps/backend/internal/config"
 	"github.com/Azmi010/my-drive/apps/backend/internal/database"
 	"github.com/Azmi010/my-drive/apps/backend/internal/db"
+	"github.com/Azmi010/my-drive/apps/backend/internal/session"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
 func main() {
-	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("failed to load configuration", "error", err)
 		os.Exit(1)
 	}
 
-	// Setup logger
 	var logHandler slog.Handler
 	if cfg.Env == "production" {
 		logHandler = slog.NewJSONHandler(os.Stdout, nil)
@@ -38,7 +38,6 @@ func main() {
 
 	slog.Info("starting my-drive backend", "env", cfg.Env, "port", cfg.Port)
 
-	// Connect to database
 	dbConn, err := database.Connect(cfg)
 	if err != nil {
 		slog.Error("failed to connect to database", "error", err)
@@ -46,17 +45,19 @@ func main() {
 	}
 	defer dbConn.Close()
 
-	// Run auto-migrations
 	if err := database.Migrate(dbConn, cfg.DBDriver); err != nil {
 		slog.Error("migration failed", "error", err)
 		os.Exit(1)
 	}
 
-	// Initialize sqlc queries
 	queries := db.New(dbConn)
-	_ = queries
+	sessions := session.NewMemoryStore()
 
-	// Setup router
+	authRepo := auth.NewRepository(queries)
+	authSvc := auth.NewService(authRepo, sessions, cfg)
+	authHandler := auth.NewHandler(authSvc)
+	authMiddleware := auth.Middleware(sessions, authSvc)
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -71,6 +72,17 @@ func main() {
 		})
 	})
 
+	r.Route("/api/auth", func(r chi.Router) {
+		r.Post("/register", authHandler.Register)
+		r.Post("/login", authHandler.Login)
+		r.Post("/logout", authHandler.Logout)
+
+		r.Group(func(r chi.Router) {
+			r.Use(authMiddleware)
+			r.Get("/me", authHandler.Me)
+		})
+	})
+
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.Port),
 		Handler:      r,
@@ -79,14 +91,12 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Start server in goroutine
 	serverErrors := make(chan error, 1)
 	go func() {
 		slog.Info("server listening", "addr", server.Addr)
 		serverErrors <- server.ListenAndServe()
 	}()
 
-	// Graceful shutdown
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
