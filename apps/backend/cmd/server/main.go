@@ -16,6 +16,7 @@ import (
 	"github.com/Azmi010/my-drive/apps/backend/internal/config"
 	"github.com/Azmi010/my-drive/apps/backend/internal/database"
 	"github.com/Azmi010/my-drive/apps/backend/internal/db"
+	"github.com/Azmi010/my-drive/apps/backend/internal/file"
 	"github.com/Azmi010/my-drive/apps/backend/internal/folder"
 	"github.com/Azmi010/my-drive/apps/backend/internal/session"
 	"github.com/Azmi010/my-drive/apps/backend/internal/storage"
@@ -70,6 +71,10 @@ func main() {
 	folderSvc := folder.NewService(folderRepo, storageDriver)
 	folderHandler := folder.NewHandler(folderSvc)
 
+	fileRepo := file.NewRepository(queries)
+	fileSvc := file.NewService(fileRepo, storageDriver)
+	fileHandler := file.NewHandler(fileSvc, storageDriver)
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -107,6 +112,23 @@ func main() {
 		r.Post("/{id}/restore", folderHandler.Restore)
 		r.Post("/{id}/permanent-delete", folderHandler.PermanentDelete)
 		r.Post("/{id}/star", folderHandler.ToggleStarred)
+	})
+
+	r.Route("/api/files", func(r chi.Router) {
+		r.Use(authMiddleware)
+
+		r.Get("/", fileHandler.ListContents)
+		r.Post("/upload", fileHandler.Upload)
+		r.Get("/{id}", fileHandler.GetByID)
+		r.Get("/{id}/preview", fileHandler.Preview)
+		r.Get("/{id}/serve", fileHandler.ServeContent)
+		r.Get("/{id}/download", fileHandler.Download)
+		r.Patch("/{id}", fileHandler.Rename)
+		r.Delete("/{id}", fileHandler.Trash)
+		r.Post("/{id}/move", fileHandler.Move)
+		r.Post("/{id}/restore", fileHandler.Restore)
+		r.Post("/{id}/permanent-delete", fileHandler.PermanentDelete)
+		r.Post("/{id}/star", fileHandler.ToggleStarred)
 	})
 
 	server := &http.Server{

@@ -133,6 +133,14 @@ func (s *LocalStorage) Stat(ctx context.Context, key string) (int64, error) {
 	return info.Size(), nil
 }
 
+func (s *LocalStorage) Path(key string) (string, error) {
+	path := s.resolvePath(key)
+	if _, err := os.Stat(path); err != nil {
+		return "", fmt.Errorf("file not found: %s", key)
+	}
+	return path, nil
+}
+
 func (s *LocalStorage) VerifyURL(key string, exp int64, sig string) bool {
 	if time.Now().Unix() > exp {
 		return false

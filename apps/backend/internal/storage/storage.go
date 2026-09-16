@@ -12,4 +12,5 @@ type Storage interface {
 	Delete(ctx context.Context, key string) error
 	URL(ctx context.Context, key string, expiry time.Duration) (string, error)
 	Stat(ctx context.Context, key string) (int64, error)
+	Path(key string) (string, error)
 }

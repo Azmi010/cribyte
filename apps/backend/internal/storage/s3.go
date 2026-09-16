@@ -97,6 +97,10 @@ func (s *S3Storage) Stat(ctx context.Context, key string) (int64, error) {
 	return info.Size, nil
 }
 
+func (s *S3Storage) Path(key string) (string, error) {
+	return "", fmt.Errorf("S3 storage does not support direct file path access")
+}
+
 type prependReader struct {
 	prefix []byte
 	reader io.ReadCloser
