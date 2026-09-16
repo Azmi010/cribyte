@@ -18,12 +18,25 @@ import (
 	"github.com/Azmi010/cribyte/apps/backend/internal/db"
 	"github.com/Azmi010/cribyte/apps/backend/internal/file"
 	"github.com/Azmi010/cribyte/apps/backend/internal/folder"
+	"github.com/Azmi010/cribyte/apps/backend/internal/ratelimit"
 	"github.com/Azmi010/cribyte/apps/backend/internal/session"
 	"github.com/Azmi010/cribyte/apps/backend/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	httpSwagger "github.com/swaggo/http-swagger"
+
+	_ "github.com/Azmi010/cribyte/apps/backend/docs"
 )
 
+// @title CriByte API
+// @version 1.0
+// @description CriByte — self-hosted Google Drive clone
+// @host localhost:4000
+// @BasePath /
+// @schemes http https
+// @securityDefinitions.apikey SessionAuth
+// @in cookie
+// @name session_id
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
@@ -75,11 +88,14 @@ func main() {
 	fileSvc := file.NewService(fileRepo, storageDriver)
 	fileHandler := file.NewHandler(fileSvc, storageDriver)
 
+	rl := ratelimit.New(10, 20) // 10 req/s, burst 20
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(rl.Middleware)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -104,6 +120,9 @@ func main() {
 		r.Use(authMiddleware)
 
 		r.Post("/", folderHandler.Create)
+		r.Get("/", folderHandler.ListContents)
+		r.Get("/starred", folderHandler.ListStarred)
+		r.Get("/trash", folderHandler.ListTrash)
 		r.Get("/{id}", folderHandler.GetByID)
 		r.Get("/{id}/contents", folderHandler.ListContents)
 		r.Patch("/{id}", folderHandler.Rename)
@@ -118,6 +137,8 @@ func main() {
 		r.Use(authMiddleware)
 
 		r.Get("/", fileHandler.ListContents)
+		r.Get("/starred", fileHandler.ListStarred)
+		r.Get("/trash", fileHandler.ListTrash)
 		r.Post("/upload", fileHandler.Upload)
 		r.Get("/{id}", fileHandler.GetByID)
 		r.Get("/{id}/preview", fileHandler.Preview)
@@ -130,6 +151,10 @@ func main() {
 		r.Post("/{id}/permanent-delete", fileHandler.PermanentDelete)
 		r.Post("/{id}/star", fileHandler.ToggleStarred)
 	})
+
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+	))
 
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.Port),

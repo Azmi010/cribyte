@@ -40,6 +40,17 @@ type userResponse struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// Register godoc
+// @Summary Register a new user
+// @Description Create a new user account with email, name, and password
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body registerRequest true "Registration payload"
+// @Success 201 {object} userResponse
+// @Failure 400 {object} map[string]string
+// @Failure 409 {object} map[string]string
+// @Router /api/auth/register [post]
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	var req registerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -74,6 +85,17 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Login godoc
+// @Summary Login with email and password
+// @Description Authenticate user and set session cookie
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body loginRequest true "Login payload"
+// @Success 200 {object} userResponse
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Router /api/auth/login [post]
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -116,6 +138,13 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Logout godoc
+// @Summary Logout current user
+// @Description Destroy session and clear cookie
+// @Tags auth
+// @Produce json
+// @Success 200 {object} map[string]string
+// @Router /api/auth/logout [post]
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("session_id")
 	if err == nil {
@@ -126,6 +155,15 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"message": "logged out"})
 }
 
+// Me godoc
+// @Summary Get current user profile
+// @Description Return the authenticated user's profile
+// @Tags auth
+// @Produce json
+// @Security SessionAuth
+// @Success 200 {object} userResponse
+// @Failure 401 {object} map[string]string
+// @Router /api/auth/me [get]
 func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value(UserKey)
 	if user == nil {

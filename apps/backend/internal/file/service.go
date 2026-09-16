@@ -445,6 +445,34 @@ func (s *Service) GetMimeType(ctx context.Context, id, ownerID string) (string, 
 	return file.MimeType, nil
 }
 
+func (s *Service) ListStarred(ctx context.Context, ownerID string) ([]FileResult, error) {
+	files, err := s.repo.ListStarred(ctx, ownerID)
+	if err != nil {
+		slog.Error("failed to list starred files", "error", err)
+		return nil, err
+	}
+
+	results := make([]FileResult, len(files))
+	for i, f := range files {
+		results[i] = toResult(f)
+	}
+	return results, nil
+}
+
+func (s *Service) ListTrash(ctx context.Context, ownerID string) ([]FileResult, error) {
+	files, err := s.repo.ListTrash(ctx, ownerID)
+	if err != nil {
+		slog.Error("failed to list trash files", "error", err)
+		return nil, err
+	}
+
+	results := make([]FileResult, len(files))
+	for i, f := range files {
+		results[i] = toResult(f)
+	}
+	return results, nil
+}
+
 func (s *Service) resolveUniqueName(ctx context.Context, ownerID, name string, parentFolderID sql.NullString) string {
 	var existing []string
 	var err error

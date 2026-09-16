@@ -34,6 +34,18 @@ type starredRequest struct {
 	Starred bool `json:"starred"`
 }
 
+// Create godoc
+// @Summary Create a folder
+// @Description Create a new folder. Auto-resolves name conflicts.
+// @Tags folders
+// @Accept json
+// @Produce json
+// @Security SessionAuth
+// @Param request body createRequest true "Folder name and optional parent"
+// @Success 201 {object} folder.FolderResult
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/folders [post]
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.GetUserFromContext(r.Context())
 	if !ok {
@@ -71,6 +83,17 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, result)
 }
 
+// GetByID godoc
+// @Summary Get folder metadata
+// @Description Get metadata for a folder by its ID
+// @Tags folders
+// @Produce json
+// @Security SessionAuth
+// @Param id path string true "Folder ID"
+// @Success 200 {object} folder.FolderResult
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/folders/{id} [get]
 func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.GetUserFromContext(r.Context())
 	if !ok {
@@ -93,6 +116,17 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
+// ListContents godoc
+// @Summary List folder contents
+// @Description List subfolders inside a folder
+// @Tags folders
+// @Produce json
+// @Security SessionAuth
+// @Param id path string true "Folder ID"
+// @Success 200 {array} folder.FolderResult
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/folders/{id}/contents [get]
 func (h *Handler) ListContents(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.GetUserFromContext(r.Context())
 	if !ok {
@@ -120,6 +154,19 @@ func (h *Handler) ListContents(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, results)
 }
 
+// Rename godoc
+// @Summary Rename a folder
+// @Description Rename a folder. Auto-resolves name conflicts.
+// @Tags folders
+// @Accept json
+// @Produce json
+// @Security SessionAuth
+// @Param id path string true "Folder ID"
+// @Param request body renameRequest true "New name"
+// @Success 200 {object} folder.FolderResult
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/folders/{id} [patch]
 func (h *Handler) Rename(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.GetUserFromContext(r.Context())
 	if !ok {
@@ -158,6 +205,19 @@ func (h *Handler) Rename(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
+// Move godoc
+// @Summary Move a folder
+// @Description Move a folder to a different parent
+// @Tags folders
+// @Accept json
+// @Produce json
+// @Security SessionAuth
+// @Param id path string true "Folder ID"
+// @Param request body moveRequest true "Target parent folder"
+// @Success 200 {object} folder.FolderResult
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/folders/{id}/move [post]
 func (h *Handler) Move(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.GetUserFromContext(r.Context())
 	if !ok {
@@ -193,6 +253,17 @@ func (h *Handler) Move(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
+// Trash godoc
+// @Summary Trash a folder
+// @Description Soft-delete a folder and all its descendants
+// @Tags folders
+// @Produce json
+// @Security SessionAuth
+// @Param id path string true "Folder ID"
+// @Success 200 {object} folder.FolderResult
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/folders/{id}/trash [delete]
 func (h *Handler) Trash(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.GetUserFromContext(r.Context())
 	if !ok {
@@ -215,6 +286,17 @@ func (h *Handler) Trash(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
+// Restore godoc
+// @Summary Restore a folder from trash
+// @Description Restore a trashed folder to its original location
+// @Tags folders
+// @Produce json
+// @Security SessionAuth
+// @Param id path string true "Folder ID"
+// @Success 200 {object} folder.FolderResult
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/folders/{id}/restore [post]
 func (h *Handler) Restore(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.GetUserFromContext(r.Context())
 	if !ok {
@@ -238,6 +320,17 @@ func (h *Handler) Restore(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
+// PermanentDelete godoc
+// @Summary Permanently delete a folder
+// @Description Delete a folder permanently from trash. Folder must be in trash first.
+// @Tags folders
+// @Produce json
+// @Security SessionAuth
+// @Param id path string true "Folder ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/folders/{id}/permanent-delete [post]
 func (h *Handler) PermanentDelete(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.GetUserFromContext(r.Context())
 	if !ok {
@@ -260,6 +353,19 @@ func (h *Handler) PermanentDelete(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"message": "folder permanently deleted"})
 }
 
+// ToggleStarred godoc
+// @Summary Star or unstar a folder
+// @Description Toggle the starred/favorite status of a folder
+// @Tags folders
+// @Accept json
+// @Produce json
+// @Security SessionAuth
+// @Param id path string true "Folder ID"
+// @Param request body starredRequest true "Starred status"
+// @Success 200 {object} folder.FolderResult
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/folders/{id}/star [post]
 func (h *Handler) ToggleStarred(w http.ResponseWriter, r *http.Request) {
 	user, ok := auth.GetUserFromContext(r.Context())
 	if !ok {
@@ -286,6 +392,56 @@ func (h *Handler) ToggleStarred(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, result)
+}
+
+// ListStarred godoc
+// @Summary List starred folders
+// @Description List all starred folders for the current user
+// @Tags folders
+// @Produce json
+// @Security SessionAuth
+// @Success 200 {array} folder.FolderResult
+// @Failure 401 {object} map[string]string
+// @Router /api/folders/starred [get]
+func (h *Handler) ListStarred(w http.ResponseWriter, r *http.Request) {
+	user, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
+	results, err := h.svc.ListStarred(r.Context(), user.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, results)
+}
+
+// ListTrash godoc
+// @Summary List trashed folders
+// @Description List all folders in trash for the current user
+// @Tags folders
+// @Produce json
+// @Security SessionAuth
+// @Success 200 {array} folder.FolderResult
+// @Failure 401 {object} map[string]string
+// @Router /api/folders/trash [get]
+func (h *Handler) ListTrash(w http.ResponseWriter, r *http.Request) {
+	user, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
+	results, err := h.svc.ListTrash(r.Context(), user.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, results)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {
