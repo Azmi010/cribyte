@@ -16,7 +16,9 @@ import (
 	"github.com/Azmi010/my-drive/apps/backend/internal/config"
 	"github.com/Azmi010/my-drive/apps/backend/internal/database"
 	"github.com/Azmi010/my-drive/apps/backend/internal/db"
+	"github.com/Azmi010/my-drive/apps/backend/internal/folder"
 	"github.com/Azmi010/my-drive/apps/backend/internal/session"
+	"github.com/Azmi010/my-drive/apps/backend/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -58,6 +60,16 @@ func main() {
 	authHandler := auth.NewHandler(authSvc)
 	authMiddleware := auth.Middleware(sessions, authSvc)
 
+	storageDriver, err := storage.New(cfg)
+	if err != nil {
+		slog.Error("failed to initialize storage", "error", err)
+		os.Exit(1)
+	}
+
+	folderRepo := folder.NewRepository(queries)
+	folderSvc := folder.NewService(folderRepo, storageDriver)
+	folderHandler := folder.NewHandler(folderSvc)
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -81,6 +93,20 @@ func main() {
 			r.Use(authMiddleware)
 			r.Get("/me", authHandler.Me)
 		})
+	})
+
+	r.Route("/api/folders", func(r chi.Router) {
+		r.Use(authMiddleware)
+
+		r.Post("/", folderHandler.Create)
+		r.Get("/{id}", folderHandler.GetByID)
+		r.Get("/{id}/contents", folderHandler.ListContents)
+		r.Patch("/{id}", folderHandler.Rename)
+		r.Delete("/{id}", folderHandler.Trash)
+		r.Post("/{id}/move", folderHandler.Move)
+		r.Post("/{id}/restore", folderHandler.Restore)
+		r.Post("/{id}/permanent-delete", folderHandler.PermanentDelete)
+		r.Post("/{id}/star", folderHandler.ToggleStarred)
 	})
 
 	server := &http.Server{
