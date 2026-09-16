@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/Azmi010/my-drive/apps/backend/internal/auth"
+	"github.com/Azmi010/cribyte/apps/backend/internal/auth"
 	"github.com/go-chi/chi/v5"
 )
 

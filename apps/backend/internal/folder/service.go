@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azmi010/my-drive/apps/backend/internal/db"
-	"github.com/Azmi010/my-drive/apps/backend/internal/storage"
+	"github.com/Azmi010/cribyte/apps/backend/internal/db"
+	"github.com/Azmi010/cribyte/apps/backend/internal/storage"
 	"github.com/google/uuid"
 )
 

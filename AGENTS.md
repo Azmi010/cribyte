@@ -1,4 +1,4 @@
-# AGENTS.md - MyDrive
+# AGENTS.md - CriByte
 
 ## Project Overview
 
@@ -19,7 +19,7 @@ Google Drive clone tanpa document editor. Preview-only. Self-hosted homeserver.
 ## Project Structure
 
 ```
-my-drive/
+cribyte/
 ├── apps/
 │   ├── web/                    # Next.js frontend
 │   │   ├── src/
@@ -193,7 +193,7 @@ my-drive/
 
 ```env
 # Database
-DATABASE_URL=postgresql://user:password@localhost:5432/mydrive
+DATABASE_URL=postgresql://user:password@localhost:5432/cribyte
 
 # JWT
 JWT_SECRET=your-secret-key
@@ -204,10 +204,10 @@ MINIO_ENDPOINT=localhost
 MINIO_PORT=9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET=mydrive
+MINIO_BUCKET=cribyte
 
 # Upload
-UPLOAD_TMP_DIR=  # opsional, default <os tmp>/mydrive-uploads
+UPLOAD_TMP_DIR=  # opsional, default <os tmp>/cribyte-uploads
 
 # App
 NEXT_PUBLIC_API_URL=http://localhost:4000

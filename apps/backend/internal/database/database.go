@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Azmi010/my-drive/apps/backend/internal/config"
-	"github.com/Azmi010/my-drive/apps/backend/migrations"
+	"github.com/Azmi010/cribyte/apps/backend/internal/config"
+	"github.com/Azmi010/cribyte/apps/backend/migrations"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	_ "modernc.org/sqlite"

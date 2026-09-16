@@ -1,4 +1,4 @@
-module github.com/Azmi010/my-drive/apps/backend
+module github.com/Azmi010/cribyte/apps/backend
 
 go 1.27.1
 

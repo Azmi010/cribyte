@@ -12,14 +12,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Azmi010/my-drive/apps/backend/internal/auth"
-	"github.com/Azmi010/my-drive/apps/backend/internal/config"
-	"github.com/Azmi010/my-drive/apps/backend/internal/database"
-	"github.com/Azmi010/my-drive/apps/backend/internal/db"
-	"github.com/Azmi010/my-drive/apps/backend/internal/file"
-	"github.com/Azmi010/my-drive/apps/backend/internal/folder"
-	"github.com/Azmi010/my-drive/apps/backend/internal/session"
-	"github.com/Azmi010/my-drive/apps/backend/internal/storage"
+	"github.com/Azmi010/cribyte/apps/backend/internal/auth"
+	"github.com/Azmi010/cribyte/apps/backend/internal/config"
+	"github.com/Azmi010/cribyte/apps/backend/internal/database"
+	"github.com/Azmi010/cribyte/apps/backend/internal/db"
+	"github.com/Azmi010/cribyte/apps/backend/internal/file"
+	"github.com/Azmi010/cribyte/apps/backend/internal/folder"
+	"github.com/Azmi010/cribyte/apps/backend/internal/session"
+	"github.com/Azmi010/cribyte/apps/backend/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -39,7 +39,7 @@ func main() {
 	}
 	slog.SetDefault(slog.New(logHandler))
 
-	slog.Info("starting my-drive backend", "env", cfg.Env, "port", cfg.Port)
+	slog.Info("starting CriByte backend", "env", cfg.Env, "port", cfg.Port)
 
 	dbConn, err := database.Connect(cfg)
 	if err != nil {

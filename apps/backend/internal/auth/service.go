@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azmi010/my-drive/apps/backend/internal/config"
-	"github.com/Azmi010/my-drive/apps/backend/internal/db"
-	"github.com/Azmi010/my-drive/apps/backend/internal/session"
+	"github.com/Azmi010/cribyte/apps/backend/internal/config"
+	"github.com/Azmi010/cribyte/apps/backend/internal/db"
+	"github.com/Azmi010/cribyte/apps/backend/internal/session"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )

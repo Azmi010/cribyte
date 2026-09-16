@@ -3,7 +3,7 @@ package storage
 import (
 	"fmt"
 
-	"github.com/Azmi010/my-drive/apps/backend/internal/config"
+	"github.com/Azmi010/cribyte/apps/backend/internal/config"
 )
 
 func New(cfg *config.Config) (Storage, error) {

@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/Azmi010/my-drive/apps/backend/internal/session"
+	"github.com/Azmi010/cribyte/apps/backend/internal/session"
 )
 
 func Middleware(sessions session.SessionStore, svc *Service) func(http.Handler) http.Handler {

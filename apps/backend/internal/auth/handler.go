@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Azmi010/my-drive/apps/backend/internal/db"
+	"github.com/Azmi010/cribyte/apps/backend/internal/db"
 )
 
 type contextKey string
