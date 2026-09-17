@@ -1,81 +1,176 @@
 <script lang="ts">
+  import { goto } from "$app/navigation";
+  import { page } from "$app/state";
+  import { onMount } from "svelte";
+  import type { FileItem, FolderItem } from "$lib/types";
+  import { formatFileSize } from "$lib/constants";
+  import { view } from "$lib/stores/view.svelte";
+  import { uploadStore } from "$lib/stores/upload.svelte";
+  import * as filesApi from "$lib/api/files";
+  import * as foldersApi from "$lib/api/folders";
   import Toolbar from "$lib/components/layout/Toolbar.svelte";
+  import GridView from "$lib/components/drive/GridView.svelte";
+  import ListView from "$lib/components/drive/ListView.svelte";
+  import EmptyState from "$lib/components/drive/EmptyState.svelte";
   import CloudUploadIcon from "@lucide/svelte/icons/cloud-upload";
-  import FolderIcon from "@lucide/svelte/icons/folder";
-  import MoreVerticalIcon from "@lucide/svelte/icons/more-vertical";
-  import StarIcon from "@lucide/svelte/icons/star";
-  import PlayIcon from "@lucide/svelte/icons/play";
-  import FileTextIcon from "@lucide/svelte/icons/file-text";
-  import TableIcon from "@lucide/svelte/icons/table";
   import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
   import XIcon from "@lucide/svelte/icons/x";
-  import { uploadStore } from "$lib/stores/upload.svelte";
+  import LoaderIcon from "@lucide/svelte/icons/loader";
+  import { toast } from "svelte-sonner";
 
-  const breadcrumbs = [
-    { id: null, name: "Home" },
-    { id: "proj", name: "Projects" },
-    { id: "assets", name: "design-assets" },
-  ];
+  // Current folder from query param
+  const folderId = $derived(page.url.searchParams.get("folder") ?? null);
 
-  const folders = [
-    { name: "Client Deliverables", items: 14, tag: "EXT4" },
-    { name: "Docker Configs & Scripts", items: 8, tag: "MOUNTED" },
-    { name: "Raw Footage & Media", items: 29, tag: "ZFS-POOL" },
-    { name: "Personal Archives", items: 4, tag: "AES-256" },
-  ];
+  let folders = $state<FolderItem[]>([]);
+  let files = $state<FileItem[]>([]);
+  let breadcrumbs = $state<{ id: string | null; name: string }[]>([{ id: null, name: "Home" }]);
+  let loading = $state(true);
+  let dragOver = $state(false);
 
-  const files = [
-    {
-      name: "quarterly-report-2026....",
-      size: "4.8 MB",
-      date: "14 Sep 2026",
-      type: "pdf",
-      starred: true,
-    },
-    {
-      name: "architecture_diagram_v...",
-      size: "2.1 MB",
-      date: "12 Sep 2026",
-      type: "png",
-      starred: true,
-    },
-    {
-      name: "production-compose.yml",
-      size: "14.2 KB",
-      date: "08 Sep 2026",
-      type: "yml",
-      starred: false,
-    },
-    {
-      name: "team_meeting_recordi...",
-      size: "640.5 MB",
-      date: "01 Sep 2026",
-      type: "video",
-      starred: false,
-      duration: "42:15",
-    },
-    {
-      name: "notes_brainstorm.md",
-      size: "3.8 KB",
-      date: "28 Aug 2026",
-      type: "markdown",
-      starred: false,
-    },
-    {
-      name: "dataset_user_metrics.csv",
-      size: "38.4 MB",
-      date: "20 Aug 2026",
-      type: "csv",
-      starred: false,
-    },
-  ];
+  // Sort files and folders
+  const sortedFolders = $derived(() => {
+    const sorted = [...folders];
+    sorted.sort((a, b) => {
+      const dir = view.sortOrder === "asc" ? 1 : -1;
+      if (view.sortBy === "name") return a.name.localeCompare(b.name) * dir;
+      if (view.sortBy === "updated_at") return (new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()) * dir;
+      if (view.sortBy === "created_at") return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * dir;
+      return a.name.localeCompare(b.name) * dir;
+    });
+    return sorted;
+  });
 
-  let showMockUpload = $state(true);
+  const sortedFiles = $derived(() => {
+    const sorted = [...files];
+    sorted.sort((a, b) => {
+      const dir = view.sortOrder === "asc" ? 1 : -1;
+      if (view.sortBy === "name") return a.name.localeCompare(b.name) * dir;
+      if (view.sortBy === "size") return (a.size - b.size) * dir;
+      if (view.sortBy === "updated_at") return (new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()) * dir;
+      if (view.sortBy === "created_at") return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * dir;
+      return a.name.localeCompare(b.name) * dir;
+    });
+    return sorted;
+  });
+
+  const isEmpty = $derived(folders.length === 0 && files.length === 0 && !loading);
+
+  async function fetchContents() {
+    loading = true;
+    try {
+      const [folderRes, fileRes] = await Promise.all([
+        foldersApi.listFolders(folderId),
+        filesApi.listFiles({ folder_id: folderId }),
+      ]);
+      folders = folderRes ?? [];
+      files = fileRes ?? [];
+
+      // Build breadcrumbs
+      if (folderId) {
+        try {
+          const folder = await foldersApi.getFolder(folderId);
+          // Simple breadcrumb: Home > current folder
+          breadcrumbs = [
+            { id: null, name: "Home" },
+            { id: folder.id, name: folder.name },
+          ];
+        } catch {
+          breadcrumbs = [{ id: null, name: "Home" }];
+        }
+      } else {
+        breadcrumbs = [{ id: null, name: "Home" }];
+      }
+    } catch (err) {
+      toast.error("Gagal memuat konten folder");
+      folders = [];
+      files = [];
+    } finally {
+      loading = false;
+    }
+  }
+
+  // Refetch when folderId changes
+  $effect(() => {
+    // Reference folderId to track it
+    const _id = folderId;
+    fetchContents();
+  });
+
+  function navigateToFolder(id: string | null) {
+    if (id) {
+      goto(`/?folder=${id}`);
+    } else {
+      goto("/");
+    }
+  }
+
+  function openFile(id: string) {
+    // TODO: open file preview modal
+    toast.info("Preview belum diimplementasi");
+  }
+
+  function handleFolderContextMenu(e: MouseEvent, folder: FolderItem) {
+    // TODO: context menu implementation in Fase 4
+    e.preventDefault();
+  }
+
+  function handleFileContextMenu(e: MouseEvent, file: FileItem) {
+    // TODO: context menu implementation in Fase 4
+    e.preventDefault();
+  }
+
+  function handleNewFolder() {
+    // TODO: create folder modal in Fase 4
+    toast.info("Buat folder belum diimplementasi");
+  }
+
+  // Drag & drop
+  function handleDragOver(e: DragEvent) {
+    e.preventDefault();
+    dragOver = true;
+  }
+
+  function handleDragLeave() {
+    dragOver = false;
+  }
+
+  function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    dragOver = false;
+    const droppedFiles = e.dataTransfer?.files;
+    if (!droppedFiles || droppedFiles.length === 0) return;
+
+    for (let i = 0; i < droppedFiles.length; i++) {
+      uploadStore.addUpload(droppedFiles[i], folderId);
+    }
+    toast.success(`${droppedFiles.length} file ditambahkan ke antrian upload`);
+  }
 </script>
 
-<Toolbar {breadcrumbs} />
+<Toolbar
+  {breadcrumbs}
+  onNavigate={navigateToFolder}
+  onNewFolder={handleNewFolder}
+/>
 
-<div class="flex-1 p-4 md:p-6 space-y-6 overflow-y-auto">
+<div
+  class="flex-1 p-4 md:p-6 space-y-6 overflow-y-auto relative"
+  ondragover={handleDragOver}
+  ondragleave={handleDragLeave}
+  ondrop={handleDrop}
+  role="region"
+  aria-label="File browser"
+>
+  <!-- Drag Over Overlay -->
+  {#if dragOver}
+    <div class="absolute inset-0 z-30 bg-primary/5 border-2 border-dashed border-primary rounded-lg flex items-center justify-center pointer-events-none">
+      <div class="flex flex-col items-center gap-2 text-primary">
+        <CloudUploadIcon class="size-10" />
+        <span class="text-sm font-semibold">Drop file di sini untuk upload</span>
+      </div>
+    </div>
+  {/if}
+
   <!-- Hero Drag & Drop Banner -->
   <div
     class="relative rounded-lg border border-dashed border-border/80 bg-muted/15 p-5 flex flex-col sm:flex-row items-center justify-between gap-4 transition-colors hover:border-primary/50"
@@ -90,7 +185,7 @@
           Drag & drop files here to upload directly to this folder
         </div>
         <div class="text-[11px] text-muted-foreground font-mono mt-0.5">
-          Instant encryption · Direct stream ingestion · Max single file: 50 GB
+          Instant encryption · Direct stream ingestion · Max single file: 100 MB
         </div>
       </div>
     </div>
@@ -99,146 +194,69 @@
     </div>
   </div>
 
-  <!-- Folders Section -->
-  <section class="space-y-3">
-    <div class="flex items-center justify-between">
-      <h2 class="text-xs font-mono font-semibold tracking-wider text-muted-foreground uppercase">
-        FOLDERS ({folders.length})
-      </h2>
-      <span class="text-[11px] font-mono text-muted-foreground">Storage priority: High</span>
+  <!-- Loading State -->
+  {#if loading}
+    <div class="flex items-center justify-center py-20">
+      <div class="flex flex-col items-center gap-3">
+        <LoaderIcon class="size-6 text-primary animate-spin" />
+        <span class="text-xs font-mono text-muted-foreground">Memuat konten...</span>
+      </div>
     </div>
-
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-      {#each folders as folder (folder.name)}
-        <div class="group p-3.5 rounded-lg border border-border/70 bg-card hover:border-primary/50 transition-all cursor-pointer">
-          <div class="flex items-start justify-between mb-3">
-            <FolderIcon class="size-6 text-primary fill-primary/15" />
-            <button
-              type="button"
-              class="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-              aria-label="Folder options"
-            >
-              <MoreVerticalIcon class="size-3.5" />
-            </button>
-          </div>
-          <div class="text-xs font-medium text-foreground truncate mb-1.5" title={folder.name}>
-            {folder.name}
-          </div>
-          <div class="flex items-center justify-between text-[11px] font-mono text-muted-foreground">
-            <span>{folder.items} items</span>
-            <span class="text-[10px] tracking-wider px-1.5 py-0.2 rounded bg-muted/60 border border-border/50 uppercase">
-              {folder.tag}
-            </span>
-          </div>
-        </div>
-      {/each}
-    </div>
-  </section>
-
-  <!-- Files Section -->
-  <section class="space-y-3">
-    <div class="flex items-center justify-between">
-      <h2 class="text-xs font-mono font-semibold tracking-wider text-muted-foreground uppercase">
-        FILES ({files.length})
-      </h2>
-      <span class="text-[11px] font-mono text-muted-foreground">685.8 MB total</span>
-    </div>
-
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-      {#each files as file (file.name)}
-        <div class="group rounded-lg border border-border/70 bg-card overflow-hidden hover:border-primary/50 transition-all cursor-pointer flex flex-col">
-          <!-- Preview Box -->
-          <div class="relative h-28 bg-muted/30 border-b border-border/50 flex flex-col items-center justify-center p-2 select-none">
-            {#if file.starred}
-              <div class="absolute top-2 right-2 text-primary">
-                <StarIcon class="size-3.5 fill-primary" />
-              </div>
-            {/if}
-
-            {#if file.type === "pdf"}
-              <div class="flex flex-col items-center gap-1 text-red-500">
-                <span class="text-[10px] font-bold tracking-widest uppercase">PDF</span>
-                <FileTextIcon class="size-8 stroke-[1.5]" />
-              </div>
-            {:else if file.type === "png"}
-              <div class="size-full rounded bg-muted/50 border border-border/60 flex items-center justify-center relative overflow-hidden">
-                <div class="absolute inset-0 bg-gradient-to-tr from-amber-500/10 to-transparent"></div>
-                <span class="text-[10px] font-mono font-bold text-muted-foreground tracking-wider uppercase">PNG</span>
-              </div>
-            {:else if file.type === "yml"}
-              <div class="w-full text-left font-mono text-[9px] text-muted-foreground/80 leading-tight space-y-0.5">
-                <div class="text-primary font-bold">version: '3.9'</div>
-                <div>services:</div>
-                <div class="pl-2">app-core:</div>
-                <div class="pl-3">restart: always</div>
-              </div>
-            {:else if file.type === "video"}
-              <div class="size-full rounded bg-black/40 flex items-center justify-center relative">
-                <div class="size-7 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-white">
-                  <PlayIcon class="size-3 fill-white ml-0.5" />
-                </div>
-                {#if file.duration}
-                  <span class="absolute bottom-1.5 right-1.5 text-[9px] font-mono bg-black/70 px-1 py-0.2 rounded text-white/90">
-                    {file.duration}
-                  </span>
-                {/if}
-              </div>
-            {:else if file.type === "markdown"}
-              <div class="flex flex-col items-center gap-1 text-muted-foreground">
-                <FileTextIcon class="size-7 stroke-[1.5]" />
-                <span class="text-[9px] font-mono tracking-wider font-semibold uppercase">MARKDOWN</span>
-              </div>
-            {:else if file.type === "csv"}
-              <div class="flex flex-col items-center gap-1 text-primary">
-                <TableIcon class="size-7 stroke-[1.5]" />
-                <span class="text-[9px] font-mono tracking-wider font-semibold uppercase">CSV DATA</span>
-              </div>
-            {/if}
-          </div>
-
-          <!-- Metadata -->
-          <div class="p-2.5 space-y-1">
-            <div class="text-xs font-medium text-foreground truncate" title={file.name}>
-              {file.name}
-            </div>
-            <div class="flex items-center justify-between text-[10px] font-mono text-muted-foreground">
-              <span>{file.size}</span>
-              <span>{file.date}</span>
-            </div>
-          </div>
-        </div>
-      {/each}
-    </div>
-  </section>
+  {:else if isEmpty}
+    <EmptyState variant="folder" />
+  {:else if view.viewMode === "grid"}
+    <GridView
+      folders={sortedFolders()}
+      files={sortedFiles()}
+      onOpenFolder={navigateToFolder}
+      onOpenFile={openFile}
+      onFolderContextMenu={handleFolderContextMenu}
+      onFileContextMenu={handleFileContextMenu}
+    />
+  {:else}
+    <ListView
+      folders={sortedFolders()}
+      files={sortedFiles()}
+      onOpenFolder={navigateToFolder}
+      onOpenFile={openFile}
+      onFolderContextMenu={handleFolderContextMenu}
+      onFileContextMenu={handleFileContextMenu}
+    />
+  {/if}
 </div>
 
 <!-- Floating Upload Progress Bar Widget -->
-{#if showMockUpload || uploadStore.hasActive}
-  <div class="fixed bottom-4 right-4 z-50 w-80 rounded-lg border border-border/90 bg-card shadow-xl p-3.5 space-y-2.5 animate-in fade-in slide-in-from-bottom-3 duration-200">
-    <div class="flex items-center justify-between text-xs">
-      <div class="flex items-center gap-2 font-medium text-foreground truncate">
-        <RefreshCwIcon class="size-3.5 text-primary animate-spin" />
-        <span class="truncate">Uploading backup-db-2026.sql.gz</span>
+{#if uploadStore.hasActive}
+  {@const activeUpload = uploadStore.uploads.find((u) => u.status === "uploading")}
+  {#if activeUpload}
+    <div class="fixed bottom-4 right-4 z-50 w-80 rounded-lg border border-border/90 bg-card shadow-xl p-3.5 space-y-2.5 animate-in fade-in slide-in-from-bottom-3 duration-200">
+      <div class="flex items-center justify-between text-xs">
+        <div class="flex items-center gap-2 font-medium text-foreground truncate">
+          <RefreshCwIcon class="size-3.5 text-primary animate-spin" />
+          <span class="truncate">Uploading {activeUpload.file.name}</span>
+        </div>
+        <button
+          type="button"
+          onclick={() => uploadStore.removeUpload(activeUpload.id)}
+          class="text-muted-foreground hover:text-foreground cursor-pointer p-0.5"
+          aria-label="Cancel upload"
+        >
+          <XIcon class="size-3.5" />
+        </button>
       </div>
-      <button
-        type="button"
-        onclick={() => (showMockUpload = false)}
-        class="text-muted-foreground hover:text-foreground cursor-pointer p-0.5"
-        aria-label="Dismiss upload notification"
-      >
-        <XIcon class="size-3.5" />
-      </button>
-    </div>
 
-    <!-- Golden Progress Bar -->
-    <div class="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-      <div class="h-full bg-primary rounded-full transition-all duration-300" style="width: 78%"></div>
-    </div>
+      <!-- Golden Progress Bar -->
+      <div class="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+        <div
+          class="h-full bg-primary rounded-full transition-all duration-300"
+          style="width: {activeUpload.progress}%"
+        ></div>
+      </div>
 
-    <div class="flex items-center justify-between text-[11px] font-mono text-muted-foreground">
-      <span>78% of 142 MB</span>
-      <span>12s remaining</span>
+      <div class="flex items-center justify-between text-[11px] font-mono text-muted-foreground">
+        <span>{activeUpload.progress}% of {formatFileSize(activeUpload.file.size)}</span>
+        <span>{uploadStore.uploads.filter((u) => u.status === "uploading" || u.status === "pending").length} file(s)</span>
+      </div>
     </div>
-  </div>
+  {/if}
 {/if}
-
