@@ -1,7 +1,6 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { onMount } from "svelte";
   import type { FileItem, FolderItem } from "$lib/types";
   import { formatFileSize } from "$lib/constants";
   import { view } from "$lib/stores/view.svelte";
@@ -55,20 +54,20 @@
 
   const isEmpty = $derived(folders.length === 0 && files.length === 0 && !loading);
 
-  async function fetchContents() {
+  async function fetchContents(currentFolderId: string | null) {
     loading = true;
     try {
       const [folderRes, fileRes] = await Promise.all([
-        foldersApi.listFolders(folderId),
-        filesApi.listFiles({ folder_id: folderId }),
+        foldersApi.listFolders(currentFolderId),
+        filesApi.listFiles({ folder_id: currentFolderId }),
       ]);
       folders = folderRes ?? [];
       files = fileRes ?? [];
 
       // Build breadcrumbs
-      if (folderId) {
+      if (currentFolderId) {
         try {
-          const folder = await foldersApi.getFolder(folderId);
+          const folder = await foldersApi.getFolder(currentFolderId);
           // Simple breadcrumb: Home > current folder
           breadcrumbs = [
             { id: null, name: "Home" },
@@ -80,7 +79,7 @@
       } else {
         breadcrumbs = [{ id: null, name: "Home" }];
       }
-    } catch (err) {
+    } catch {
       toast.error("Gagal memuat konten folder");
       folders = [];
       files = [];
@@ -91,9 +90,7 @@
 
   // Refetch when folderId changes
   $effect(() => {
-    // Reference folderId to track it
-    const _id = folderId;
-    fetchContents();
+    fetchContents(folderId);
   });
 
   function navigateToFolder(id: string | null) {
@@ -104,17 +101,17 @@
     }
   }
 
-  function openFile(id: string) {
+  function openFile() {
     // TODO: open file preview modal
     toast.info("Preview belum diimplementasi");
   }
 
-  function handleFolderContextMenu(e: MouseEvent, folder: FolderItem) {
+  function handleFolderContextMenu(e: MouseEvent) {
     // TODO: context menu implementation in Fase 4
     e.preventDefault();
   }
 
-  function handleFileContextMenu(e: MouseEvent, file: FileItem) {
+  function handleFileContextMenu(e: MouseEvent) {
     // TODO: context menu implementation in Fase 4
     e.preventDefault();
   }

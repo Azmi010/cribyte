@@ -49,15 +49,15 @@
     }
   }
 
-  function openFile(id: string) {
+  function openFile() {
     toast.info("Preview belum diimplementasi");
   }
 
-  function handleFolderContextMenu(e: MouseEvent, folder: FolderItem) {
+  function handleFolderContextMenu(e: MouseEvent) {
     e.preventDefault();
   }
 
-  function handleFileContextMenu(e: MouseEvent, file: FileItem) {
+  function handleFileContextMenu(e: MouseEvent) {
     e.preventDefault();
   }
 </script>
