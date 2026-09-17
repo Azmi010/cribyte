@@ -7,6 +7,7 @@
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import HelpCircleIcon from "@lucide/svelte/icons/help-circle";
   import XIcon from "@lucide/svelte/icons/x";
+  import Logo from "$lib/components/Logo.svelte";
   import { uploadStore } from "$lib/stores/upload.svelte";
 
   let {
@@ -49,19 +50,7 @@
 >
   <div class="flex items-center justify-between px-4 py-3.5 border-b border-sidebar-border">
     <div class="flex items-center gap-2.5">
-      <svg
-        class="size-5.5 text-primary"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <path d="m21 16-9 5-9-5V8l9-5 9 5v8Z" />
-        <path d="m3.27 6.96 8.73 4.86 8.73-4.86" />
-        <path d="M12 22.08V12" />
-      </svg>
+      <Logo class="size-6 shrink-0" />
       <span class="font-bold text-sm tracking-tight text-foreground">CriByte</span>
     </div>
     <div class="flex items-center gap-1.5">

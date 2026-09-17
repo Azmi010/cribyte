@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="amberGradLight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EAA81B"/>
+      <stop offset="50%" stop-color="#D6A419"/>
+      <stop offset="100%" stop-color="#A57908"/>
+    </linearGradient>
+    <linearGradient id="cubeTopLight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F7D371"/>
+      <stop offset="50%" stop-color="#D6A419"/>
+    </linearGradient>
+    <linearGradient id="cubeLeftLight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#C29013"/>
+      <stop offset="100%" stop-color="#8F6506"/>
+    </linearGradient>
+    <linearGradient id="cubeRightLight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D6A419"/>
+      <stop offset="100%" stop-color="#A87B0B"/>
+    </linearGradient>
+    <linearGradient id="bgLightGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F1F1F2"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bgLightGrad)"/>
+  <rect width="510" height="510" x="1" y="1" rx="111" fill="none" stroke="#E5E5E6" stroke-width="2"/>
+
+  <g opacity="0.16" fill="#D6A419">
+    <circle cx="128" cy="128" r="3.5"/>
+    <circle cx="256" cy="128" r="3.5"/>
+    <circle cx="384" cy="128" r="3.5"/>
+    <circle cx="128" cy="256" r="3.5"/>
+    <circle cx="384" cy="256" r="3.5"/>
+    <circle cx="128" cy="384" r="3.5"/>
+    <circle cx="256" cy="384" r="3.5"/>
+    <circle cx="384" cy="384" r="3.5"/>
+  </g>
+
+  <g transform="translate(0, 0)">
+    <path d="M 330 148 C 240 125 155 180 142 270 C 130 355 192 418 290 412 C 342 409 375 385 390 365" 
+          fill="none" 
+          stroke="url(#amberGradLight)" 
+          stroke-width="18" 
+          stroke-linecap="round" 
+          stroke-linejoin="round"/>
+
+    <circle cx="330" cy="148" r="8" fill="#F7D371"/>
+    <circle cx="142" cy="270" r="7" fill="#D6A419"/>
+    <circle cx="390" cy="365" r="8" fill="#F7D371"/>
+
+    <polygon points="268,175 338,215 268,255 198,215" fill="url(#cubeTopLight)"/>
+    <polygon points="198,215 268,255 268,335 198,295" fill="url(#cubeLeftLight)"/>
+    <polygon points="268,255 338,215 338,295 268,335" fill="url(#cubeRightLight)"/>
+
+    <line x1="268" y1="205" x2="268" y2="225" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+    <line x1="233" y1="275" x2="233" y2="255" stroke="#FFF0B3" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+    <line x1="303" y1="275" x2="303" y2="255" stroke="#FFF0B3" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+    
+    <circle cx="268" cy="255" r="5" fill="#1C1E21"/>
+  </g>
+</svg>
+
