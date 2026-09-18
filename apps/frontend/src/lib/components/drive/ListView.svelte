@@ -6,15 +6,19 @@
 	let {
 		folders = [],
 		files = [],
+		selectedId = null,
 		onOpenFolder,
 		onOpenFile,
+		onSelect,
 		onFolderContextMenu,
 		onFileContextMenu
 	} = $props<{
 		folders?: FolderItem[];
 		files?: FileItem[];
+		selectedId?: string | null;
 		onOpenFolder?: (id: string) => void;
 		onOpenFile?: (id: string) => void;
+		onSelect?: (id: string) => void;
 		onFolderContextMenu?: (e: MouseEvent, folder: FolderItem) => void;
 		onFileContextMenu?: (e: MouseEvent, file: FileItem) => void;
 	}>();
@@ -33,7 +37,9 @@
 		{#each folders as folder (folder.id)}
 			<FolderListItem 
 				{folder} 
+				selected={selectedId === folder.id}
 				onOpen={() => onOpenFolder?.(folder.id)}
+				onSelect={() => onSelect?.(folder.id)}
 				onContextMenu={(e: MouseEvent) => onFolderContextMenu?.(e, folder)}
 			/>
 		{/each}
@@ -41,7 +47,9 @@
 		{#each files as file (file.id)}
 			<FileListItem 
 				{file} 
+				selected={selectedId === file.id}
 				onOpen={() => onOpenFile?.(file.id)}
+				onSelect={() => onSelect?.(file.id)}
 				onContextMenu={(e: MouseEvent) => onFileContextMenu?.(e, file)}
 			/>
 		{/each}

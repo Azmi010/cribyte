@@ -7,8 +7,11 @@
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import HelpCircleIcon from "@lucide/svelte/icons/help-circle";
   import XIcon from "@lucide/svelte/icons/x";
+  import SunIcon from "@lucide/svelte/icons/sun";
+  import MoonIcon from "@lucide/svelte/icons/moon";
   import Logo from "$lib/components/Logo.svelte";
   import { uploadStore } from "$lib/stores/upload.svelte";
+  import { toggleMode, mode } from "mode-watcher";
 
   let {
     isMobile = false,
@@ -130,6 +133,21 @@
         <SettingsIcon class="size-3.5" />
         <span>Settings</span>
       </a>
+      <button
+        type="button"
+        onclick={() => toggleMode()}
+        class="flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer"
+        aria-label="Toggle dark mode"
+        title="Toggle tema"
+      >
+        {#if mode.current === "dark"}
+          <SunIcon class="size-3.5" />
+          <span>Light</span>
+        {:else}
+          <MoonIcon class="size-3.5" />
+          <span>Dark</span>
+        {/if}
+      </button>
       <a
         href="https://github.com/Azmi010/cribyte"
         target="_blank"

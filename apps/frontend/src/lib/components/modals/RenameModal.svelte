@@ -5,7 +5,9 @@
   import * as filesApi from "$lib/api/files";
   import * as foldersApi from "$lib/api/folders";
   import { toast } from "svelte-sonner";
+  import { handleApiError } from "$lib/api/errors";
   import PencilIcon from "@lucide/svelte/icons/pencil";
+  import LoaderIcon from "@lucide/svelte/icons/loader";
   import type { FileItem, FolderItem } from "$lib/types";
 
   let {
@@ -48,8 +50,7 @@
       open = false;
       onDone?.();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Gagal rename";
-      toast.error(msg);
+      handleApiError(err, "Gagal rename");
     } finally {
       loading = false;
     }
@@ -89,7 +90,7 @@
         Batal
       </Button>
       <Button onclick={handleSubmit} disabled={!name.trim() || loading}>
-        {loading ? "Menyimpan..." : "Simpan"}
+        {#if loading}<LoaderIcon class="size-3.5 mr-1.5 animate-spin" />Menyimpan...{:else}Simpan{/if}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

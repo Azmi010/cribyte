@@ -6,6 +6,7 @@
   import { toast } from "svelte-sonner";
   import type { FileItem, FolderItem } from "$lib/types";
   import AlertTriangleIcon from "@lucide/svelte/icons/alert-triangle";
+  import LoaderIcon from "@lucide/svelte/icons/loader";
 
   let {
     open = $bindable(false),
@@ -74,7 +75,7 @@
         Batal
       </Button>
       <Button variant="destructive" onclick={handleEmptyTrash} disabled={loading}>
-        {loading ? "Menghapus..." : "Hapus permanen semua"}
+        {#if loading}<LoaderIcon class="size-3.5 mr-1.5 animate-spin" />Menghapus...{:else}Hapus permanen semua{/if}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

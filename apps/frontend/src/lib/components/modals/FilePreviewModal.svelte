@@ -227,7 +227,7 @@
                 <circle cx="18" cy="16" r="3" />
               </svg>
             </div>
-            <audio src={filesApi.serveUrl(item.id)} controls class="w-full max-w-md" preload="metadata" />
+            <audio src={filesApi.serveUrl(item.id)} controls class="w-full max-w-md" preload="metadata"></audio>
           </div>
 
         {:else if preview.kind === "pdf" && preview.signed_url}

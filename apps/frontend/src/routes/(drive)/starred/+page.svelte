@@ -7,15 +7,16 @@
   import GridView from "$lib/components/drive/GridView.svelte";
   import ListView from "$lib/components/drive/ListView.svelte";
   import EmptyState from "$lib/components/drive/EmptyState.svelte";
+  import DriveSkeleton from "$lib/components/drive/DriveSkeleton.svelte";
   import FileContextMenu from "$lib/components/drive/FileContextMenu.svelte";
   import FolderContextMenu from "$lib/components/drive/FolderContextMenu.svelte";
   import RenameModal from "$lib/components/modals/RenameModal.svelte";
   import MoveModal from "$lib/components/modals/MoveModal.svelte";
   import DeleteConfirmModal from "$lib/components/modals/DeleteConfirmModal.svelte";
   import FilePreviewModal from "$lib/components/modals/FilePreviewModal.svelte";
-  import LoaderIcon from "@lucide/svelte/icons/loader";
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
+  import { handleApiError } from "$lib/api/errors";
 
   let folders = $state<FolderItem[]>([]);
   let files = $state<FileItem[]>([]);
@@ -34,8 +35,8 @@
       ]);
       folders = folderRes ?? [];
       files = fileRes ?? [];
-    } catch {
-      toast.error("Gagal memuat item yang ditandai");
+    } catch (err) {
+      handleApiError(err, "Gagal memuat item yang ditandai");
       folders = [];
       files = [];
     } finally {
@@ -131,8 +132,8 @@
       await filesApi.toggleFileStarred(item.id, !item.starred);
       toast.success("Dihapus dari bintang");
       fetchStarred();
-    } catch {
-      toast.error("Gagal mengubah status bintang");
+    } catch (err) {
+      handleApiError(err, "Gagal mengubah status bintang");
     }
   }
 
@@ -164,8 +165,8 @@
       await foldersApi.toggleFolderStarred(item.id, !item.starred);
       toast.success("Dihapus dari bintang");
       fetchStarred();
-    } catch {
-      toast.error("Gagal mengubah status bintang");
+    } catch (err) {
+      handleApiError(err, "Gagal mengubah status bintang");
     }
   }
 
@@ -188,12 +189,7 @@
 
 <div class="flex-1 p-4 md:p-6 space-y-6 overflow-y-auto">
   {#if loading}
-    <div class="flex items-center justify-center py-20">
-      <div class="flex flex-col items-center gap-3">
-        <LoaderIcon class="size-6 text-primary animate-spin" />
-        <span class="text-xs font-mono text-muted-foreground">Memuat item yang ditandai...</span>
-      </div>
-    </div>
+    <DriveSkeleton />
   {:else if isEmpty}
     <EmptyState variant="starred" />
   {:else if view.viewMode === "grid"}

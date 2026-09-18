@@ -4,8 +4,10 @@
   import * as filesApi from "$lib/api/files";
   import * as foldersApi from "$lib/api/folders";
   import { toast } from "svelte-sonner";
+  import { handleApiError } from "$lib/api/errors";
   import type { FileItem, FolderItem } from "$lib/types";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
+  import LoaderIcon from "@lucide/svelte/icons/loader";
 
   let {
     open = $bindable(false),
@@ -35,8 +37,7 @@
       open = false;
       onDone?.();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Gagal menghapus";
-      toast.error(msg);
+      handleApiError(err, "Gagal menghapus");
     } finally {
       loading = false;
     }
@@ -60,7 +61,7 @@
         Batal
       </Button>
       <Button variant="destructive" onclick={handleTrash} disabled={loading}>
-        {loading ? "Menghapus..." : "Trash"}
+        {#if loading}<LoaderIcon class="size-3.5 mr-1.5 animate-spin" />Menghapus...{:else}Trash{/if}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

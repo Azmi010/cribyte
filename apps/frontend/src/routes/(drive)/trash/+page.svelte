@@ -7,15 +7,16 @@
   import GridView from "$lib/components/drive/GridView.svelte";
   import ListView from "$lib/components/drive/ListView.svelte";
   import EmptyState from "$lib/components/drive/EmptyState.svelte";
+  import DriveSkeleton from "$lib/components/drive/DriveSkeleton.svelte";
   import FileContextMenu from "$lib/components/drive/FileContextMenu.svelte";
   import FolderContextMenu from "$lib/components/drive/FolderContextMenu.svelte";
   import PermanentDeleteModal from "$lib/components/modals/PermanentDeleteModal.svelte";
   import EmptyTrashModal from "$lib/components/modals/EmptyTrashModal.svelte";
   import FilePreviewModal from "$lib/components/modals/FilePreviewModal.svelte";
-  import LoaderIcon from "@lucide/svelte/icons/loader";
   import TrashIcon from "@lucide/svelte/icons/trash";
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
+  import { handleApiError } from "$lib/api/errors";
 
   let folders = $state<FolderItem[]>([]);
   let files = $state<FileItem[]>([]);
@@ -34,8 +35,8 @@
       ]);
       folders = folderRes ?? [];
       files = fileRes ?? [];
-    } catch {
-      toast.error("Gagal memuat trash");
+    } catch (err) {
+      handleApiError(err, "Gagal memuat trash");
       folders = [];
       files = [];
     } finally {
@@ -102,8 +103,8 @@
       await filesApi.restoreFile(item.id);
       toast.success("Berhasil dipulihkan");
       fetchTrash();
-    } catch {
-      toast.error("Gagal memulihkan file");
+    } catch (err) {
+      handleApiError(err, "Gagal memulihkan file");
     }
   }
 
@@ -119,8 +120,8 @@
       await foldersApi.restoreFolder(item.id);
       toast.success("Berhasil dipulihkan");
       fetchTrash();
-    } catch {
-      toast.error("Gagal memulihkan folder");
+    } catch (err) {
+      handleApiError(err, "Gagal memulihkan folder");
     }
   }
 
@@ -155,12 +156,7 @@
     </div>
   {/if}
   {#if loading}
-    <div class="flex items-center justify-center py-20">
-      <div class="flex flex-col items-center gap-3">
-        <LoaderIcon class="size-6 text-primary animate-spin" />
-        <span class="text-xs font-mono text-muted-foreground">Memuat trash...</span>
-      </div>
-    </div>
+    <DriveSkeleton />
   {:else if isEmpty}
     <EmptyState variant="trash" />
   {:else if view.viewMode === "grid"}

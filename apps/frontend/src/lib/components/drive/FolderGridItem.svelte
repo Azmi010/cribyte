@@ -4,13 +4,17 @@
   import Star from '@lucide/svelte/icons/star';
   import type { FolderItem } from '$lib/types';
   
-  let { 
-    folder, 
-    onOpen, 
-    onContextMenu 
+  let {
+    folder,
+    selected = false,
+    onOpen,
+    onSelect,
+    onContextMenu
   }: {
     folder: FolderItem;
+    selected?: boolean;
     onOpen?: (id: string) => void;
+    onSelect?: (id: string) => void;
     onContextMenu?: (e: MouseEvent, folder: FolderItem) => void;
   } = $props();
 </script>
@@ -18,9 +22,11 @@
 <div
   role="button"
   tabindex="0"
-  class="border border-border/70 bg-card rounded-lg p-3.5 hover:border-primary/50 relative flex flex-col gap-2 w-full text-left outline-none cursor-default transition-colors"
+  aria-pressed={selected}
+  class="border bg-card rounded-lg p-3.5 relative flex flex-col gap-2 w-full text-left outline-none cursor-default transition-colors {selected ? 'border-primary ring-1 ring-primary/40' : 'border-border/70 hover:border-primary/50'}"
+  onclick={() => onSelect?.(folder.id)}
   ondblclick={() => onOpen?.(folder.id)}
-  oncontextmenu={(e) => onContextMenu?.(e, folder)}
+  oncontextmenu={(e) => { onSelect?.(folder.id); onContextMenu?.(e, folder); }}
   onkeydown={(e) => { if (e.key === 'Enter') onOpen?.(folder.id); }}
 >
   {#if folder.starred}

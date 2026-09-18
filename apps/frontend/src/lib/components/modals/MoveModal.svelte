@@ -4,6 +4,7 @@
   import * as foldersApi from "$lib/api/folders";
   import * as filesApi from "$lib/api/files";
   import { toast } from "svelte-sonner";
+  import { handleApiError } from "$lib/api/errors";
   import type { FileItem, FolderItem } from "$lib/types";
   import FolderIcon from "@lucide/svelte/icons/folder";
 
@@ -77,8 +78,7 @@
       open = false;
       onDone?.();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Gagal memindahkan";
-      toast.error(msg);
+      handleApiError(err, "Gagal memindahkan");
     } finally {
       moving = false;
     }
@@ -155,7 +155,7 @@
         onclick={handleMove}
         disabled={moving || isCurrentFolderDisabled()}
       >
-        {moving ? "Memindahkan..." : `Pindah ke ${selectedFolderName}`}
+        {#if moving}<LoaderIcon class="size-3.5 mr-1.5 animate-spin" />Memindahkan...{:else}Pindah ke {selectedFolderName}{/if}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

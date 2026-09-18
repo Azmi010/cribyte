@@ -15,6 +15,14 @@ type FetchOptions = Omit<RequestInit, "body"> & {
   body?: object | FormData;
 };
 
+// Callback yang dipanggil saat session expired (401). Di-set oleh app shell
+// supaya modul client tetap bebas dependency ke store/router.
+let onSessionExpired: (() => void) | undefined;
+
+export function setSessionExpiredHandler(handler: () => void): void {
+  onSessionExpired = handler;
+}
+
 export async function api<T>(path: string, options: FetchOptions = {}): Promise<T> {
   const { body, headers: customHeaders, ...rest } = options;
 
@@ -44,6 +52,17 @@ export async function api<T>(path: string, options: FetchOptions = {}): Promise<
     } catch {
       // response body bukan JSON
     }
+
+    // Session expired: redirect ke login kecuali request memang endpoint auth
+    // (login/register/me) supaya form auth tetap bisa nampilin error sendiri.
+    if (response.status === 401 && typeof window !== "undefined") {
+      const isAuthEndpoint = path.startsWith("/auth/");
+      const onLoginPage = window.location.pathname.startsWith("/login");
+      if (!isAuthEndpoint && !onLoginPage) {
+        onSessionExpired?.();
+      }
+    }
+
     throw new ApiRequestError(response.status, message);
   }
 

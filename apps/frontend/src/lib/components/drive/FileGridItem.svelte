@@ -9,13 +9,17 @@
   import type { FileItem } from '$lib/types';
   import { formatFileSize, getPreviewKind } from '$lib/constants';
   
-  let { 
-    file, 
-    onOpen, 
-    onContextMenu 
+  let {
+    file,
+    selected = false,
+    onOpen,
+    onSelect,
+    onContextMenu
   }: {
     file: FileItem;
+    selected?: boolean;
     onOpen?: (id: string) => void;
+    onSelect?: (id: string) => void;
     onContextMenu?: (e: MouseEvent, file: FileItem) => void;
   } = $props();
 
@@ -31,9 +35,11 @@
 <div
   role="button"
   tabindex="0"
-  class="border border-border/70 bg-card rounded-lg hover:border-primary/50 flex flex-col w-full text-left overflow-hidden outline-none cursor-default transition-colors"
+  aria-pressed={selected}
+  class="border bg-card rounded-lg flex flex-col w-full text-left overflow-hidden outline-none cursor-default transition-colors {selected ? 'border-primary ring-1 ring-primary/40' : 'border-border/70 hover:border-primary/50'}"
+  onclick={() => onSelect?.(file.id)}
   ondblclick={() => onOpen?.(file.id)}
-  oncontextmenu={(e) => onContextMenu?.(e, file)}
+  oncontextmenu={(e) => { onSelect?.(file.id); onContextMenu?.(e, file); }}
   onkeydown={(e) => { if (e.key === 'Enter') onOpen?.(file.id); }}
 >
   <div class="h-28 bg-muted/30 border-b relative flex items-center justify-center">

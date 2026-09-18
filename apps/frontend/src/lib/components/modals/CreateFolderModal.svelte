@@ -4,7 +4,9 @@
   import { Input } from "$lib/components/ui/input";
   import * as foldersApi from "$lib/api/folders";
   import { toast } from "svelte-sonner";
+  import { handleApiError } from "$lib/api/errors";
   import FolderPlusIcon from "@lucide/svelte/icons/folder-plus";
+  import LoaderIcon from "@lucide/svelte/icons/loader";
 
   let {
     open = $bindable(false),
@@ -34,8 +36,7 @@
       name = "";
       onDone?.();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Gagal membuat folder";
-      toast.error(msg);
+      handleApiError(err, "Gagal membuat folder");
     } finally {
       loading = false;
     }
@@ -71,7 +72,7 @@
         Batal
       </Button>
       <Button onclick={handleSubmit} disabled={!name.trim() || loading}>
-        {loading ? "Membuat..." : "Buat"}
+        {#if loading}<LoaderIcon class="size-3.5 mr-1.5 animate-spin" />Membuat...{:else}Buat{/if}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

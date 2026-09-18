@@ -4,8 +4,10 @@
   import * as filesApi from "$lib/api/files";
   import * as foldersApi from "$lib/api/folders";
   import { toast } from "svelte-sonner";
+  import { handleApiError } from "$lib/api/errors";
   import type { FileItem, FolderItem } from "$lib/types";
   import AlertTriangleIcon from "@lucide/svelte/icons/alert-triangle";
+  import LoaderIcon from "@lucide/svelte/icons/loader";
 
   let {
     open = $bindable(false),
@@ -35,8 +37,7 @@
       open = false;
       onDone?.();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Gagal menghapus permanen";
-      toast.error(msg);
+      handleApiError(err, "Gagal menghapus permanen");
     } finally {
       loading = false;
     }
@@ -60,7 +61,7 @@
         Batal
       </Button>
       <Button variant="destructive" onclick={handlePermanentDelete} disabled={loading}>
-        {loading ? "Menghapus..." : "Hapus permanen"}
+        {#if loading}<LoaderIcon class="size-3.5 mr-1.5 animate-spin" />Menghapus...{:else}Hapus permanen{/if}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

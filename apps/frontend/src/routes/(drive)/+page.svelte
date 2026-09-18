@@ -12,6 +12,7 @@
   import GridView from "$lib/components/drive/GridView.svelte";
   import ListView from "$lib/components/drive/ListView.svelte";
   import EmptyState from "$lib/components/drive/EmptyState.svelte";
+  import DriveSkeleton from "$lib/components/drive/DriveSkeleton.svelte";
   import FileContextMenu from "$lib/components/drive/FileContextMenu.svelte";
   import FolderContextMenu from "$lib/components/drive/FolderContextMenu.svelte";
   import CreateFolderModal from "$lib/components/modals/CreateFolderModal.svelte";
@@ -22,8 +23,8 @@
   import CloudUploadIcon from "@lucide/svelte/icons/cloud-upload";
   import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
   import XIcon from "@lucide/svelte/icons/x";
-  import LoaderIcon from "@lucide/svelte/icons/loader";
   import { toast } from "svelte-sonner";
+  import { handleApiError } from "$lib/api/errors";
 
   const folderId = $derived(page.url.searchParams.get("folder") ?? null);
 
@@ -63,6 +64,17 @@
 
   const isEmpty = $derived(folders.length === 0 && files.length === 0 && !loading);
 
+  // --- Selection (single item) ---
+  let selectedId = $state<string | null>(null);
+  let uploadInputRef = $state<HTMLInputElement | null>(null);
+
+  const selectedFile = $derived(files.find((f) => f.id === selectedId) ?? null);
+  const selectedFolder = $derived(folders.find((f) => f.id === selectedId) ?? null);
+
+  function handleSelect(id: string) {
+    selectedId = selectedId === id ? null : id;
+  }
+
   async function fetchContents(currentFolderId: string | null, search?: string) {
     loading = true;
     try {
@@ -96,8 +108,8 @@
           breadcrumbs = [{ id: null, name: "Home" }];
         }
       }
-    } catch {
-      toast.error("Gagal memuat konten");
+    } catch (err) {
+      handleApiError(err, "Gagal memuat konten");
       folders = [];
       files = [];
     } finally {
@@ -210,8 +222,8 @@
       await filesApi.toggleFileStarred(item.id, !item.starred);
       toast.success(item.starred ? "Dihapus dari bintang" : "Ditandai bintang");
       fetchContents(folderId);
-    } catch {
-      toast.error("Gagal mengubah status bintang");
+    } catch (err) {
+      handleApiError(err, "Gagal mengubah status bintang");
     }
   }
 
@@ -243,8 +255,8 @@
       await foldersApi.toggleFolderStarred(item.id, !item.starred);
       toast.success(item.starred ? "Dihapus dari bintang" : "Ditandai bintang");
       fetchContents(folderId);
-    } catch {
-      toast.error("Gagal mengubah status bintang");
+    } catch (err) {
+      handleApiError(err, "Gagal mengubah status bintang");
     }
   }
 
@@ -279,7 +291,83 @@
   function handleDone() {
     fetchContents(folderId);
   }
+
+  // --- Keyboard Shortcuts ---
+  const anyModalOpen = $derived(
+    createFolderOpen || renameOpen || moveOpen || deleteConfirmOpen || previewOpen,
+  );
+
+  function handleShortcut(e: KeyboardEvent) {
+    const target = e.target as HTMLElement | null;
+    const typing =
+      target &&
+      (target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable);
+
+    // Escape: batal seleksi (modal punya handler sendiri)
+    if (e.key === "Escape") {
+      if (!anyModalOpen) selectedId = null;
+      return;
+    }
+
+    // Ctrl/Cmd + U: trigger upload
+    if ((e.metaKey || e.ctrlKey) && (e.key === "u" || e.key === "U")) {
+      e.preventDefault();
+      uploadInputRef?.click();
+      return;
+    }
+
+    if (typing || anyModalOpen) return;
+
+    // Ctrl/Cmd + A: pilih item pertama (model seleksi tunggal)
+    if ((e.metaKey || e.ctrlKey) && (e.key === "a" || e.key === "A")) {
+      const first = sortedFolders()[0]?.id ?? sortedFiles()[0]?.id ?? null;
+      if (first) {
+        e.preventDefault();
+        selectedId = first;
+      }
+      return;
+    }
+
+    if (!selectedId) return;
+
+    // Delete: trash item terpilih
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.preventDefault();
+      if (selectedFolder) handleFolderTrash(selectedFolder);
+      else if (selectedFile) handleFileTrash(selectedFile);
+      return;
+    }
+
+    // F2: rename item terpilih
+    if (e.key === "F2") {
+      e.preventDefault();
+      if (selectedFolder) handleFolderRename(selectedFolder);
+      else if (selectedFile) handleFileRename(selectedFile);
+    }
+  }
+
+  function handleUploadInput(e: Event) {
+    const input = e.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    for (let i = 0; i < input.files.length; i++) {
+      uploadStore.addUpload(input.files[i], folderId);
+    }
+    input.value = "";
+    toast.success(`${input.files.length} file ditambahkan ke antrian upload`);
+  }
 </script>
+
+<svelte:window onkeydown={handleShortcut} />
+
+<input
+  bind:this={uploadInputRef}
+  type="file"
+  multiple
+  class="hidden"
+  onchange={handleUploadInput}
+/>
 
 <Toolbar
   {breadcrumbs}
@@ -322,23 +410,20 @@
       </div>
     </div>
     <div class="text-[11px] font-mono text-muted-foreground bg-muted/50 border border-border/70 px-2 py-1 rounded shrink-0">
-      Shift + U
+      ⌘/Ctrl + U
     </div>
   </div>
 
   {#if loading}
-    <div class="flex items-center justify-center py-20">
-      <div class="flex flex-col items-center gap-3">
-        <LoaderIcon class="size-6 text-primary animate-spin" />
-        <span class="text-xs font-mono text-muted-foreground">Memuat konten...</span>
-      </div>
-    </div>
+    <DriveSkeleton />
   {:else if isEmpty}
     <EmptyState variant={isSearching ? "search" : "folder"} query={currentSearch} />
   {:else if view.viewMode === "grid"}
     <GridView
       folders={sortedFolders()}
       files={sortedFiles()}
+      {selectedId}
+      onSelect={handleSelect}
       onOpenFolder={navigateToFolder}
       onOpenFile={(id) => { const f = files.find((x) => x.id === id); if (f) openFile(f); }}
       onFolderContextMenu={handleFolderContextMenu}
@@ -348,6 +433,8 @@
     <ListView
       folders={sortedFolders()}
       files={sortedFiles()}
+      {selectedId}
+      onSelect={handleSelect}
       onOpenFolder={navigateToFolder}
       onOpenFile={(id) => { const f = files.find((x) => x.id === id); if (f) openFile(f); }}
       onFolderContextMenu={handleFolderContextMenu}

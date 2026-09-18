@@ -28,7 +28,7 @@
 
 	<h3 class="mb-1 text-sm font-medium text-foreground">
 		{#if variant === 'folder'}
-			Folder ini kosong
+			Belum ada file di sini
 		{:else if variant === 'search'}
 			Tidak ada hasil
 		{:else if variant === 'starred'}
@@ -40,9 +40,9 @@
 
 	<p class="text-xs text-muted-foreground font-mono">
 		{#if variant === 'folder'}
-			Seret file ke sini atau klik Upload untuk menambahkan file
+			Seret file ke sini atau klik Upload
 		{:else if variant === 'search'}
-			Tidak ada file atau folder yang cocok dengan "{query}"
+			Tidak ada hasil untuk "{query}"
 		{:else if variant === 'starred'}
 			Tandai file atau folder dengan bintang untuk akses cepat
 		{:else if variant === 'trash'}
