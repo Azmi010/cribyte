@@ -12,6 +12,7 @@
   import RenameModal from "$lib/components/modals/RenameModal.svelte";
   import MoveModal from "$lib/components/modals/MoveModal.svelte";
   import DeleteConfirmModal from "$lib/components/modals/DeleteConfirmModal.svelte";
+  import FilePreviewModal from "$lib/components/modals/FilePreviewModal.svelte";
   import LoaderIcon from "@lucide/svelte/icons/loader";
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
@@ -54,8 +55,12 @@
     }
   }
 
-  function openFile(_file: FileItem) {
-    toast.info("Preview belum diimplementasi");
+  let previewOpen = $state(false);
+  let previewItem = $state<FileItem | null>(null);
+
+  function openFile(file: FileItem) {
+    previewItem = file;
+    previewOpen = true;
   }
 
   // --- Context Menu State ---
@@ -260,4 +265,9 @@
   item={deleteConfirmItem}
   itemType={deleteConfirmType}
   onDone={handleDone}
+/>
+
+<FilePreviewModal
+  bind:open={previewOpen}
+  item={previewItem}
 />

@@ -10,6 +10,7 @@
   import FileContextMenu from "$lib/components/drive/FileContextMenu.svelte";
   import FolderContextMenu from "$lib/components/drive/FolderContextMenu.svelte";
   import PermanentDeleteModal from "$lib/components/modals/PermanentDeleteModal.svelte";
+  import FilePreviewModal from "$lib/components/modals/FilePreviewModal.svelte";
   import LoaderIcon from "@lucide/svelte/icons/loader";
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
@@ -52,8 +53,12 @@
     }
   }
 
-  function openFile(_file: FileItem) {
-    toast.info("Preview belum diimplementasi");
+  let previewOpen = $state(false);
+  let previewItem = $state<FileItem | null>(null);
+
+  function openFile(file: FileItem) {
+    previewItem = file;
+    previewOpen = true;
   }
 
   // --- Context Menu State ---
@@ -191,4 +196,9 @@
   item={permanentDeleteItem}
   itemType={permanentDeleteType}
   onDone={handleDone}
+/>
+
+<FilePreviewModal
+  bind:open={previewOpen}
+  item={previewItem}
 />
