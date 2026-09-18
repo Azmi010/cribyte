@@ -10,8 +10,10 @@
   import FileContextMenu from "$lib/components/drive/FileContextMenu.svelte";
   import FolderContextMenu from "$lib/components/drive/FolderContextMenu.svelte";
   import PermanentDeleteModal from "$lib/components/modals/PermanentDeleteModal.svelte";
+  import EmptyTrashModal from "$lib/components/modals/EmptyTrashModal.svelte";
   import FilePreviewModal from "$lib/components/modals/FilePreviewModal.svelte";
   import LoaderIcon from "@lucide/svelte/icons/loader";
+  import TrashIcon from "@lucide/svelte/icons/trash";
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
 
@@ -92,6 +94,7 @@
   let permanentDeleteOpen = $state(false);
   let permanentDeleteItem = $state<FileItem | FolderItem | null>(null);
   let permanentDeleteType = $state<"file" | "folder">("file");
+  let emptyTrashOpen = $state(false);
 
   // --- File Actions ---
   async function handleFileRestore(item: FileItem) {
@@ -139,6 +142,18 @@
 <Toolbar {breadcrumbs} onNavigate={navigateToFolder} />
 
 <div class="flex-1 p-4 md:p-6 space-y-6 overflow-y-auto">
+  {#if !isEmpty && !loading}
+    <div class="flex justify-end">
+      <button
+        type="button"
+        onclick={() => (emptyTrashOpen = true)}
+        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors"
+      >
+        <TrashIcon class="size-3.5" />
+        Kosongkan trash
+      </button>
+    </div>
+  {/if}
   {#if loading}
     <div class="flex items-center justify-center py-20">
       <div class="flex flex-col items-center gap-3">
@@ -201,4 +216,11 @@
 <FilePreviewModal
   bind:open={previewOpen}
   item={previewItem}
+/>
+
+<EmptyTrashModal
+  bind:open={emptyTrashOpen}
+  {files}
+  {folders}
+  onDone={handleDone}
 />
