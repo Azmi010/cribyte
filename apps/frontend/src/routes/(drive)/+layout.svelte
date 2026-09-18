@@ -1,11 +1,17 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { auth } from "$lib/stores/auth.svelte";
+  import { searchQuery } from "$lib/stores/search";
   import { Sidebar, ContentArea } from "$lib/components/layout";
 
   let { children } = $props();
 
   let mobileSidebarOpen = $state(false);
+  let searchValue = $state("");
+
+  function handleSearchSubmit(query: string) {
+    searchQuery.set(query);
+  }
 
   // Redirect to login if not authenticated (after loading completes)
   $effect(() => {
@@ -43,7 +49,7 @@
       </div>
     {/if}
 
-    <ContentArea onMenuClick={() => (mobileSidebarOpen = true)}>
+    <ContentArea onMenuClick={() => (mobileSidebarOpen = true)} bind:search={searchValue} onSearchSubmit={handleSearchSubmit}>
       {@render children()}
     </ContentArea>
   </div>

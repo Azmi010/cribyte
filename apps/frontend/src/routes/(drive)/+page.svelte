@@ -5,6 +5,7 @@
   import { formatFileSize } from "$lib/constants";
   import { view } from "$lib/stores/view.svelte";
   import { uploadStore } from "$lib/stores/upload.svelte";
+  import { searchQuery } from "$lib/stores/search";
   import * as filesApi from "$lib/api/files";
   import * as foldersApi from "$lib/api/folders";
   import Toolbar from "$lib/components/layout/Toolbar.svelte";
@@ -31,6 +32,9 @@
   let breadcrumbs = $state<{ id: string | null; name: string }[]>([{ id: null, name: "Home" }]);
   let loading = $state(true);
   let dragOver = $state(false);
+  let currentSearch = $state("");
+
+  const isSearching = $derived(currentSearch.length > 0);
 
   const sortedFolders = $derived(() => {
     const sorted = [...folders];
@@ -59,31 +63,41 @@
 
   const isEmpty = $derived(folders.length === 0 && files.length === 0 && !loading);
 
-  async function fetchContents(currentFolderId: string | null) {
+  async function fetchContents(currentFolderId: string | null, search?: string) {
     loading = true;
     try {
-      const [folderRes, fileRes] = await Promise.all([
-        foldersApi.listFolders(currentFolderId),
-        filesApi.listFiles({ folder_id: currentFolderId }),
-      ]);
-      folders = folderRes ?? [];
-      files = fileRes ?? [];
+      if (search) {
+        const searchRes = await filesApi.searchFiles(search);
+        files = searchRes ?? [];
+        folders = [];
+        breadcrumbs = [
+          { id: null, name: "Home" },
+          { id: null, name: `Hasil pencarian "${search}"` },
+        ];
+      } else {
+        const [folderRes, fileRes] = await Promise.all([
+          foldersApi.listFolders(currentFolderId),
+          filesApi.listFiles({ folder_id: currentFolderId }),
+        ]);
+        folders = folderRes ?? [];
+        files = fileRes ?? [];
 
-      if (currentFolderId) {
-        try {
-          const folder = await foldersApi.getFolder(currentFolderId);
-          breadcrumbs = [
-            { id: null, name: "Home" },
-            { id: folder.id, name: folder.name },
-          ];
-        } catch {
+        if (currentFolderId) {
+          try {
+            const folder = await foldersApi.getFolder(currentFolderId);
+            breadcrumbs = [
+              { id: null, name: "Home" },
+              { id: folder.id, name: folder.name },
+            ];
+          } catch {
+            breadcrumbs = [{ id: null, name: "Home" }];
+          }
+        } else {
           breadcrumbs = [{ id: null, name: "Home" }];
         }
-      } else {
-        breadcrumbs = [{ id: null, name: "Home" }];
       }
     } catch {
-      toast.error("Gagal memuat konten folder");
+      toast.error("Gagal memuat konten");
       folders = [];
       files = [];
     } finally {
@@ -93,6 +107,18 @@
 
   $effect(() => {
     fetchContents(folderId);
+  });
+
+  $effect(() => {
+    const unsub = searchQuery.subscribe((q) => {
+      currentSearch = q;
+      if (q) {
+        fetchContents(null, q);
+      } else {
+        fetchContents(folderId);
+      }
+    });
+    return unsub;
   });
 
   function navigateToFolder(id: string | null) {
@@ -308,7 +334,7 @@
       </div>
     </div>
   {:else if isEmpty}
-    <EmptyState variant="folder" />
+    <EmptyState variant={isSearching ? "search" : "folder"} query={currentSearch} />
   {:else if view.viewMode === "grid"}
     <GridView
       folders={sortedFolders()}
