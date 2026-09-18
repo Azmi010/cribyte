@@ -102,7 +102,7 @@
     }
   }
 
-  function openFile(file: FileItem) {
+  function openFile(_file: FileItem) {
     toast.info("Preview belum diimplementasi");
   }
 

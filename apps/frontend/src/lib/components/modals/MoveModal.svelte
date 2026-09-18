@@ -6,7 +6,7 @@
   import { toast } from "svelte-sonner";
   import type { FileItem, FolderItem } from "$lib/types";
   import FolderIcon from "@lucide/svelte/icons/folder";
-  import FolderOpenIcon from "@lucide/svelte/icons/folder-open";
+
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import HomeIcon from "@lucide/svelte/icons/home";
   import LoaderIcon from "@lucide/svelte/icons/loader";
