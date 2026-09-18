@@ -11,13 +11,18 @@
   import GridView from "$lib/components/drive/GridView.svelte";
   import ListView from "$lib/components/drive/ListView.svelte";
   import EmptyState from "$lib/components/drive/EmptyState.svelte";
+  import FileContextMenu from "$lib/components/drive/FileContextMenu.svelte";
+  import FolderContextMenu from "$lib/components/drive/FolderContextMenu.svelte";
+  import CreateFolderModal from "$lib/components/modals/CreateFolderModal.svelte";
+  import RenameModal from "$lib/components/modals/RenameModal.svelte";
+  import MoveModal from "$lib/components/modals/MoveModal.svelte";
+  import DeleteConfirmModal from "$lib/components/modals/DeleteConfirmModal.svelte";
   import CloudUploadIcon from "@lucide/svelte/icons/cloud-upload";
   import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
   import XIcon from "@lucide/svelte/icons/x";
   import LoaderIcon from "@lucide/svelte/icons/loader";
   import { toast } from "svelte-sonner";
 
-  // Current folder from query param
   const folderId = $derived(page.url.searchParams.get("folder") ?? null);
 
   let folders = $state<FolderItem[]>([]);
@@ -26,7 +31,6 @@
   let loading = $state(true);
   let dragOver = $state(false);
 
-  // Sort files and folders
   const sortedFolders = $derived(() => {
     const sorted = [...folders];
     sorted.sort((a, b) => {
@@ -64,11 +68,9 @@
       folders = folderRes ?? [];
       files = fileRes ?? [];
 
-      // Build breadcrumbs
       if (currentFolderId) {
         try {
           const folder = await foldersApi.getFolder(currentFolderId);
-          // Simple breadcrumb: Home > current folder
           breadcrumbs = [
             { id: null, name: "Home" },
             { id: folder.id, name: folder.name },
@@ -88,7 +90,6 @@
     }
   }
 
-  // Refetch when folderId changes
   $effect(() => {
     fetchContents(folderId);
   });
@@ -101,27 +102,128 @@
     }
   }
 
-  function openFile() {
-    // TODO: open file preview modal
+  function openFile(file: FileItem) {
     toast.info("Preview belum diimplementasi");
   }
 
-  function handleFolderContextMenu(e: MouseEvent) {
-    // TODO: context menu implementation in Fase 4
+  // --- Context Menu State ---
+  let fileContextMenuOpen = $state(false);
+  let fileContextMenuX = $state(0);
+  let fileContextMenuY = $state(0);
+  let fileContextMenuItem = $state<FileItem | null>(null);
+
+  let folderContextMenuOpen = $state(false);
+  let folderContextMenuX = $state(0);
+  let folderContextMenuY = $state(0);
+  let folderContextMenuItem = $state<FolderItem | null>(null);
+
+  function handleFolderContextMenu(e: MouseEvent, folder: FolderItem) {
     e.preventDefault();
+    folderContextMenuItem = folder;
+    folderContextMenuX = e.clientX;
+    folderContextMenuY = e.clientY;
+    folderContextMenuOpen = true;
   }
 
-  function handleFileContextMenu(e: MouseEvent) {
-    // TODO: context menu implementation in Fase 4
+  function handleFileContextMenu(e: MouseEvent, file: FileItem) {
     e.preventDefault();
+    fileContextMenuItem = file;
+    fileContextMenuX = e.clientX;
+    fileContextMenuY = e.clientY;
+    fileContextMenuOpen = true;
   }
+
+  // --- Modal State ---
+  let createFolderOpen = $state(false);
+  let renameOpen = $state(false);
+  let renameItem = $state<FileItem | FolderItem | null>(null);
+  let renameType = $state<"file" | "folder">("file");
+  let moveOpen = $state(false);
+  let moveItem = $state<FileItem | FolderItem | null>(null);
+  let moveType = $state<"file" | "folder">("file");
+  let deleteConfirmOpen = $state(false);
+  let deleteConfirmItem = $state<FileItem | FolderItem | null>(null);
+  let deleteConfirmType = $state<"file" | "folder">("file");
 
   function handleNewFolder() {
-    // TODO: create folder modal in Fase 4
-    toast.info("Buat folder belum diimplementasi");
+    createFolderOpen = true;
   }
 
-  // Drag & drop
+  // --- File Context Menu Actions ---
+  function handleFilePreview(item: FileItem) {
+    openFile(item);
+  }
+
+  function handleFileDownload(item: FileItem) {
+    const url = filesApi.downloadUrl(item.id);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = item.name;
+    a.click();
+  }
+
+  function handleFileRename(item: FileItem) {
+    renameItem = item;
+    renameType = "file";
+    renameOpen = true;
+  }
+
+  function handleFileMove(item: FileItem) {
+    moveItem = item;
+    moveType = "file";
+    moveOpen = true;
+  }
+
+  async function handleFileToggleStar(item: FileItem) {
+    try {
+      await filesApi.toggleFileStarred(item.id, !item.starred);
+      toast.success(item.starred ? "Dihapus dari bintang" : "Ditandai bintang");
+      fetchContents(folderId);
+    } catch {
+      toast.error("Gagal mengubah status bintang");
+    }
+  }
+
+  function handleFileTrash(item: FileItem) {
+    deleteConfirmItem = item;
+    deleteConfirmType = "file";
+    deleteConfirmOpen = true;
+  }
+
+  // --- Folder Context Menu Actions ---
+  function handleFolderOpen(item: FolderItem) {
+    navigateToFolder(item.id);
+  }
+
+  function handleFolderRename(item: FolderItem) {
+    renameItem = item;
+    renameType = "folder";
+    renameOpen = true;
+  }
+
+  function handleFolderMove(item: FolderItem) {
+    moveItem = item;
+    moveType = "folder";
+    moveOpen = true;
+  }
+
+  async function handleFolderToggleStar(item: FolderItem) {
+    try {
+      await foldersApi.toggleFolderStarred(item.id, !item.starred);
+      toast.success(item.starred ? "Dihapus dari bintang" : "Ditandai bintang");
+      fetchContents(folderId);
+    } catch {
+      toast.error("Gagal mengubah status bintang");
+    }
+  }
+
+  function handleFolderTrash(item: FolderItem) {
+    deleteConfirmItem = item;
+    deleteConfirmType = "folder";
+    deleteConfirmOpen = true;
+  }
+
+  // --- Drag & Drop ---
   function handleDragOver(e: DragEvent) {
     e.preventDefault();
     dragOver = true;
@@ -142,6 +244,10 @@
     }
     toast.success(`${droppedFiles.length} file ditambahkan ke antrian upload`);
   }
+
+  function handleDone() {
+    fetchContents(folderId);
+  }
 </script>
 
 <Toolbar
@@ -158,7 +264,6 @@
   role="region"
   aria-label="File browser"
 >
-  <!-- Drag Over Overlay -->
   {#if dragOver}
     <div class="absolute inset-0 z-30 bg-primary/5 border-2 border-dashed border-primary rounded-lg flex items-center justify-center pointer-events-none">
       <div class="flex flex-col items-center gap-2 text-primary">
@@ -168,7 +273,6 @@
     </div>
   {/if}
 
-  <!-- Hero Drag & Drop Banner -->
   <div
     class="relative rounded-lg border border-dashed border-border/80 bg-muted/15 p-5 flex flex-col sm:flex-row items-center justify-between gap-4 transition-colors hover:border-primary/50"
     style="background-image: radial-gradient(circle, var(--border) 1px, transparent 1px); background-size: 20px 20px;"
@@ -191,7 +295,6 @@
     </div>
   </div>
 
-  <!-- Loading State -->
   {#if loading}
     <div class="flex items-center justify-center py-20">
       <div class="flex flex-col items-center gap-3">
@@ -206,7 +309,7 @@
       folders={sortedFolders()}
       files={sortedFiles()}
       onOpenFolder={navigateToFolder}
-      onOpenFile={openFile}
+      onOpenFile={(id) => { const f = files.find((x) => x.id === id); if (f) openFile(f); }}
       onFolderContextMenu={handleFolderContextMenu}
       onFileContextMenu={handleFileContextMenu}
     />
@@ -215,7 +318,7 @@
       folders={sortedFolders()}
       files={sortedFiles()}
       onOpenFolder={navigateToFolder}
-      onOpenFile={openFile}
+      onOpenFile={(id) => { const f = files.find((x) => x.id === id); if (f) openFile(f); }}
       onFolderContextMenu={handleFolderContextMenu}
       onFileContextMenu={handleFileContextMenu}
     />
@@ -241,15 +344,12 @@
           <XIcon class="size-3.5" />
         </button>
       </div>
-
-      <!-- Golden Progress Bar -->
       <div class="h-1.5 w-full bg-muted rounded-full overflow-hidden">
         <div
           class="h-full bg-primary rounded-full transition-all duration-300"
           style="width: {activeUpload.progress}%"
         ></div>
       </div>
-
       <div class="flex items-center justify-between text-[11px] font-mono text-muted-foreground">
         <span>{activeUpload.progress}% of {formatFileSize(activeUpload.file.size)}</span>
         <span>{uploadStore.uploads.filter((u) => u.status === "uploading" || u.status === "pending").length} file(s)</span>
@@ -257,3 +357,59 @@
     </div>
   {/if}
 {/if}
+
+<!-- Context Menus -->
+<FileContextMenu
+  bind:open={fileContextMenuOpen}
+  x={fileContextMenuX}
+  y={fileContextMenuY}
+  item={fileContextMenuItem}
+  context="drive"
+  onPreview={handleFilePreview}
+  onDownload={handleFileDownload}
+  onRename={handleFileRename}
+  onMove={handleFileMove}
+  onToggleStar={handleFileToggleStar}
+  onTrash={handleFileTrash}
+/>
+
+<FolderContextMenu
+  bind:open={folderContextMenuOpen}
+  x={folderContextMenuX}
+  y={folderContextMenuY}
+  item={folderContextMenuItem}
+  context="drive"
+  onOpen={handleFolderOpen}
+  onRename={handleFolderRename}
+  onMove={handleFolderMove}
+  onToggleStar={handleFolderToggleStar}
+  onTrash={handleFolderTrash}
+/>
+
+<!-- Modals -->
+<CreateFolderModal
+  bind:open={createFolderOpen}
+  parentFolderId={folderId}
+  onDone={handleDone}
+/>
+
+<RenameModal
+  bind:open={renameOpen}
+  item={renameItem}
+  itemType={renameType}
+  onDone={handleDone}
+/>
+
+<MoveModal
+  bind:open={moveOpen}
+  item={moveItem}
+  itemType={moveType}
+  onDone={handleDone}
+/>
+
+<DeleteConfirmModal
+  bind:open={deleteConfirmOpen}
+  item={deleteConfirmItem}
+  itemType={deleteConfirmType}
+  onDone={handleDone}
+/>

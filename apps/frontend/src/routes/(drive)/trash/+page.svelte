@@ -7,6 +7,9 @@
   import GridView from "$lib/components/drive/GridView.svelte";
   import ListView from "$lib/components/drive/ListView.svelte";
   import EmptyState from "$lib/components/drive/EmptyState.svelte";
+  import FileContextMenu from "$lib/components/drive/FileContextMenu.svelte";
+  import FolderContextMenu from "$lib/components/drive/FolderContextMenu.svelte";
+  import PermanentDeleteModal from "$lib/components/modals/PermanentDeleteModal.svelte";
   import LoaderIcon from "@lucide/svelte/icons/loader";
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
@@ -49,16 +52,78 @@
     }
   }
 
-  function openFile() {
+  function openFile(_file: FileItem) {
     toast.info("Preview belum diimplementasi");
   }
 
-  function handleFolderContextMenu(e: MouseEvent) {
+  // --- Context Menu State ---
+  let fileContextMenuOpen = $state(false);
+  let fileContextMenuX = $state(0);
+  let fileContextMenuY = $state(0);
+  let fileContextMenuItem = $state<FileItem | null>(null);
+
+  let folderContextMenuOpen = $state(false);
+  let folderContextMenuX = $state(0);
+  let folderContextMenuY = $state(0);
+  let folderContextMenuItem = $state<FolderItem | null>(null);
+
+  function handleFolderContextMenu(e: MouseEvent, folder: FolderItem) {
     e.preventDefault();
+    folderContextMenuItem = folder;
+    folderContextMenuX = e.clientX;
+    folderContextMenuY = e.clientY;
+    folderContextMenuOpen = true;
   }
 
-  function handleFileContextMenu(e: MouseEvent) {
+  function handleFileContextMenu(e: MouseEvent, file: FileItem) {
     e.preventDefault();
+    fileContextMenuItem = file;
+    fileContextMenuX = e.clientX;
+    fileContextMenuY = e.clientY;
+    fileContextMenuOpen = true;
+  }
+
+  // --- Modal State ---
+  let permanentDeleteOpen = $state(false);
+  let permanentDeleteItem = $state<FileItem | FolderItem | null>(null);
+  let permanentDeleteType = $state<"file" | "folder">("file");
+
+  // --- File Actions ---
+  async function handleFileRestore(item: FileItem) {
+    try {
+      await filesApi.restoreFile(item.id);
+      toast.success("Berhasil dipulihkan");
+      fetchTrash();
+    } catch {
+      toast.error("Gagal memulihkan file");
+    }
+  }
+
+  function handleFilePermanentDelete(item: FileItem) {
+    permanentDeleteItem = item;
+    permanentDeleteType = "file";
+    permanentDeleteOpen = true;
+  }
+
+  // --- Folder Actions ---
+  async function handleFolderRestore(item: FolderItem) {
+    try {
+      await foldersApi.restoreFolder(item.id);
+      toast.success("Berhasil dipulihkan");
+      fetchTrash();
+    } catch {
+      toast.error("Gagal memulihkan folder");
+    }
+  }
+
+  function handleFolderPermanentDelete(item: FolderItem) {
+    permanentDeleteItem = item;
+    permanentDeleteType = "folder";
+    permanentDeleteOpen = true;
+  }
+
+  function handleDone() {
+    fetchTrash();
   }
 </script>
 
@@ -83,7 +148,7 @@
       {folders}
       {files}
       onOpenFolder={navigateToFolder}
-      onOpenFile={openFile}
+      onOpenFile={(id) => { const f = files.find((x) => x.id === id); if (f) openFile(f); }}
       onFolderContextMenu={handleFolderContextMenu}
       onFileContextMenu={handleFileContextMenu}
     />
@@ -92,10 +157,38 @@
       {folders}
       {files}
       onOpenFolder={navigateToFolder}
-      onOpenFile={openFile}
+      onOpenFile={(id) => { const f = files.find((x) => x.id === id); if (f) openFile(f); }}
       onFolderContextMenu={handleFolderContextMenu}
       onFileContextMenu={handleFileContextMenu}
     />
   {/if}
 </div>
 
+<!-- Context Menus (trash context) -->
+<FileContextMenu
+  bind:open={fileContextMenuOpen}
+  x={fileContextMenuX}
+  y={fileContextMenuY}
+  item={fileContextMenuItem}
+  context="trash"
+  onRestore={handleFileRestore}
+  onPermanentDelete={handleFilePermanentDelete}
+/>
+
+<FolderContextMenu
+  bind:open={folderContextMenuOpen}
+  x={folderContextMenuX}
+  y={folderContextMenuY}
+  item={folderContextMenuItem}
+  context="trash"
+  onRestore={handleFolderRestore}
+  onPermanentDelete={handleFolderPermanentDelete}
+/>
+
+<!-- Modals -->
+<PermanentDeleteModal
+  bind:open={permanentDeleteOpen}
+  item={permanentDeleteItem}
+  itemType={permanentDeleteType}
+  onDone={handleDone}
+/>

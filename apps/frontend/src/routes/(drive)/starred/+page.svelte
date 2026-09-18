@@ -7,6 +7,11 @@
   import GridView from "$lib/components/drive/GridView.svelte";
   import ListView from "$lib/components/drive/ListView.svelte";
   import EmptyState from "$lib/components/drive/EmptyState.svelte";
+  import FileContextMenu from "$lib/components/drive/FileContextMenu.svelte";
+  import FolderContextMenu from "$lib/components/drive/FolderContextMenu.svelte";
+  import RenameModal from "$lib/components/modals/RenameModal.svelte";
+  import MoveModal from "$lib/components/modals/MoveModal.svelte";
+  import DeleteConfirmModal from "$lib/components/modals/DeleteConfirmModal.svelte";
   import LoaderIcon from "@lucide/svelte/icons/loader";
   import { toast } from "svelte-sonner";
   import { goto } from "$app/navigation";
@@ -49,16 +54,124 @@
     }
   }
 
-  function openFile() {
+  function openFile(_file: FileItem) {
     toast.info("Preview belum diimplementasi");
   }
 
-  function handleFolderContextMenu(e: MouseEvent) {
+  // --- Context Menu State ---
+  let fileContextMenuOpen = $state(false);
+  let fileContextMenuX = $state(0);
+  let fileContextMenuY = $state(0);
+  let fileContextMenuItem = $state<FileItem | null>(null);
+
+  let folderContextMenuOpen = $state(false);
+  let folderContextMenuX = $state(0);
+  let folderContextMenuY = $state(0);
+  let folderContextMenuItem = $state<FolderItem | null>(null);
+
+  function handleFolderContextMenu(e: MouseEvent, folder: FolderItem) {
     e.preventDefault();
+    folderContextMenuItem = folder;
+    folderContextMenuX = e.clientX;
+    folderContextMenuY = e.clientY;
+    folderContextMenuOpen = true;
   }
 
-  function handleFileContextMenu(e: MouseEvent) {
+  function handleFileContextMenu(e: MouseEvent, file: FileItem) {
     e.preventDefault();
+    fileContextMenuItem = file;
+    fileContextMenuX = e.clientX;
+    fileContextMenuY = e.clientY;
+    fileContextMenuOpen = true;
+  }
+
+  // --- Modal State ---
+  let renameOpen = $state(false);
+  let renameItem = $state<FileItem | FolderItem | null>(null);
+  let renameType = $state<"file" | "folder">("file");
+  let moveOpen = $state(false);
+  let moveItem = $state<FileItem | FolderItem | null>(null);
+  let moveType = $state<"file" | "folder">("file");
+  let deleteConfirmOpen = $state(false);
+  let deleteConfirmItem = $state<FileItem | FolderItem | null>(null);
+  let deleteConfirmType = $state<"file" | "folder">("file");
+
+  // --- File Actions ---
+  function handleFilePreview(item: FileItem) {
+    openFile(item);
+  }
+
+  function handleFileDownload(item: FileItem) {
+    const url = filesApi.downloadUrl(item.id);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = item.name;
+    a.click();
+  }
+
+  function handleFileRename(item: FileItem) {
+    renameItem = item;
+    renameType = "file";
+    renameOpen = true;
+  }
+
+  function handleFileMove(item: FileItem) {
+    moveItem = item;
+    moveType = "file";
+    moveOpen = true;
+  }
+
+  async function handleFileToggleStar(item: FileItem) {
+    try {
+      await filesApi.toggleFileStarred(item.id, !item.starred);
+      toast.success("Dihapus dari bintang");
+      fetchStarred();
+    } catch {
+      toast.error("Gagal mengubah status bintang");
+    }
+  }
+
+  function handleFileTrash(item: FileItem) {
+    deleteConfirmItem = item;
+    deleteConfirmType = "file";
+    deleteConfirmOpen = true;
+  }
+
+  // --- Folder Actions ---
+  function handleFolderOpen(item: FolderItem) {
+    navigateToFolder(item.id);
+  }
+
+  function handleFolderRename(item: FolderItem) {
+    renameItem = item;
+    renameType = "folder";
+    renameOpen = true;
+  }
+
+  function handleFolderMove(item: FolderItem) {
+    moveItem = item;
+    moveType = "folder";
+    moveOpen = true;
+  }
+
+  async function handleFolderToggleStar(item: FolderItem) {
+    try {
+      await foldersApi.toggleFolderStarred(item.id, !item.starred);
+      toast.success("Dihapus dari bintang");
+      fetchStarred();
+    } catch {
+      toast.error("Gagal mengubah status bintang");
+    }
+  }
+
+  function handleFolderTrash(item: FolderItem) {
+    deleteConfirmItem = item;
+    deleteConfirmType = "folder";
+    deleteConfirmOpen = true;
+  }
+
+  function handleDone() {
+    fetchStarred();
   }
 </script>
 
@@ -83,7 +196,7 @@
       {folders}
       {files}
       onOpenFolder={navigateToFolder}
-      onOpenFile={openFile}
+      onOpenFile={(id) => { const f = files.find((x) => x.id === id); if (f) openFile(f); }}
       onFolderContextMenu={handleFolderContextMenu}
       onFileContextMenu={handleFileContextMenu}
     />
@@ -92,10 +205,59 @@
       {folders}
       {files}
       onOpenFolder={navigateToFolder}
-      onOpenFile={openFile}
+      onOpenFile={(id) => { const f = files.find((x) => x.id === id); if (f) openFile(f); }}
       onFolderContextMenu={handleFolderContextMenu}
       onFileContextMenu={handleFileContextMenu}
     />
   {/if}
 </div>
 
+<!-- Context Menus -->
+<FileContextMenu
+  bind:open={fileContextMenuOpen}
+  x={fileContextMenuX}
+  y={fileContextMenuY}
+  item={fileContextMenuItem}
+  context="drive"
+  onPreview={handleFilePreview}
+  onDownload={handleFileDownload}
+  onRename={handleFileRename}
+  onMove={handleFileMove}
+  onToggleStar={handleFileToggleStar}
+  onTrash={handleFileTrash}
+/>
+
+<FolderContextMenu
+  bind:open={folderContextMenuOpen}
+  x={folderContextMenuX}
+  y={folderContextMenuY}
+  item={folderContextMenuItem}
+  context="drive"
+  onOpen={handleFolderOpen}
+  onRename={handleFolderRename}
+  onMove={handleFolderMove}
+  onToggleStar={handleFolderToggleStar}
+  onTrash={handleFolderTrash}
+/>
+
+<!-- Modals -->
+<RenameModal
+  bind:open={renameOpen}
+  item={renameItem}
+  itemType={renameType}
+  onDone={handleDone}
+/>
+
+<MoveModal
+  bind:open={moveOpen}
+  item={moveItem}
+  itemType={moveType}
+  onDone={handleDone}
+/>
+
+<DeleteConfirmModal
+  bind:open={deleteConfirmOpen}
+  item={deleteConfirmItem}
+  itemType={deleteConfirmType}
+  onDone={handleDone}
+/>
