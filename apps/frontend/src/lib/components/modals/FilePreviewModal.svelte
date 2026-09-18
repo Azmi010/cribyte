@@ -2,7 +2,6 @@
   import type { FileItem, PreviewResult } from "$lib/types";
   import * as filesApi from "$lib/api/files";
   import { formatFileSize } from "$lib/constants";
-  import { toast } from "svelte-sonner";
   import XIcon from "@lucide/svelte/icons/x";
   import DownloadIcon from "@lucide/svelte/icons/download";
   import ZoomInIcon from "@lucide/svelte/icons/zoom-in";
@@ -204,6 +203,7 @@
             class:cursor-grab={zoom > 1}
             class:cursor-grabbing={isPanning}
             style="transform: scale({zoom}) translate({panX / zoom}px, {panY / zoom}px);"
+            onwheel={handleWheel}
             onmousedown={handleMouseDown}
             draggable="false"
           />
