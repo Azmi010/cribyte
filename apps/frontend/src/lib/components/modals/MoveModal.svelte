@@ -16,13 +16,18 @@
     open = $bindable(false),
     item = null,
     itemType = "file",
+    entries = null,
     onDone,
   }: {
     open: boolean;
     item: FileItem | FolderItem | null;
     itemType?: "file" | "folder";
+    entries?: { id: string; name: string; type: "file" | "folder" }[] | null;
     onDone?: () => void;
   } = $props();
+
+  const isBulk = $derived(!!entries && entries.length > 0);
+  const bulkFolderIds = $derived(new Set((entries ?? []).filter((e) => e.type === "folder").map((e) => e.id)));
 
   let loading = $state(false);
   let moving = $state(false);
@@ -65,6 +70,27 @@
   }
 
   async function handleMove() {
+    if (isBulk) {
+      moving = true;
+      try {
+        await Promise.all(
+          (entries ?? []).map((e) =>
+            e.type === "folder"
+              ? foldersApi.moveFolder(e.id, currentParentId)
+              : filesApi.moveFile(e.id, currentParentId),
+          ),
+        );
+        toast.success(`${entries!.length} item dipindahkan`);
+        open = false;
+        onDone?.();
+      } catch (err) {
+        handleApiError(err, "Gagal memindahkan");
+      } finally {
+        moving = false;
+      }
+      return;
+    }
+
     if (!item) return;
 
     moving = true;
@@ -85,6 +111,10 @@
   }
 
   function isCurrentFolderDisabled(): boolean {
+    if (isBulk) {
+      // Tidak boleh pindah folder ke dirinya sendiri
+      return currentParentId !== null && bulkFolderIds.has(currentParentId);
+    }
     if (!item || itemType !== "folder") return false;
     return currentParentId === item.id;
   }
@@ -95,9 +125,13 @@
 <Dialog.Root bind:open>
   <Dialog.Content class="sm:max-w-lg">
     <Dialog.Header>
-      <Dialog.Title>Pindahkan {itemType === "folder" ? "folder" : "file"}</Dialog.Title>
+      <Dialog.Title>Pindahkan {isBulk ? `${entries!.length} item` : itemType === "folder" ? "folder" : "file"}</Dialog.Title>
       <Dialog.Description>
-        Pilih folder tujuan untuk memindahkan "{item?.name}".
+        {#if isBulk}
+          Pilih folder tujuan untuk memindahkan {entries!.length} item.
+        {:else}
+          Pilih folder tujuan untuk memindahkan "{item?.name}".
+        {/if}
       </Dialog.Description>
     </Dialog.Header>
 

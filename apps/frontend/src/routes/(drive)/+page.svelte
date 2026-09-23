@@ -26,6 +26,9 @@
   import CheckIcon from "@lucide/svelte/icons/check";
   import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
   import XIcon from "@lucide/svelte/icons/x";
+  import StarIcon from "@lucide/svelte/icons/star";
+  import FolderInputIcon from "@lucide/svelte/icons/folder-input";
+  import Trash2Icon from "@lucide/svelte/icons/trash-2";
   import { toast } from "svelte-sonner";
   import { handleApiError } from "$lib/api/errors";
 
@@ -67,15 +70,163 @@
 
   const isEmpty = $derived(folders.length === 0 && files.length === 0 && !loading);
 
-  // --- Selection (single item) ---
-  let selectedId = $state<string | null>(null);
+  // --- Selection (multi-item) ---
+  let selectedIds = $state(new Set<string>());
+  let lastSelectedId = $state<string | null>(null);
   let uploadInputRef = $state<HTMLInputElement | null>(null);
 
-  const selectedFile = $derived(files.find((f) => f.id === selectedId) ?? null);
-  const selectedFolder = $derived(folders.find((f) => f.id === selectedId) ?? null);
+  const orderedIds = $derived([
+    ...sortedFolders().map((f) => f.id),
+    ...sortedFiles().map((f) => f.id),
+  ]);
 
-  function handleSelect(id: string) {
-    selectedId = selectedId === id ? null : id;
+  const singleSelectedId = $derived(selectedIds.size === 1 ? [...selectedIds][0] : null);
+  const selectedFile = $derived(singleSelectedId ? (files.find((f) => f.id === singleSelectedId) ?? null) : null);
+  const selectedFolder = $derived(singleSelectedId ? (folders.find((f) => f.id === singleSelectedId) ?? null) : null);
+
+  const selectedFilesList = $derived(files.filter((f) => selectedIds.has(f.id)));
+  const selectedFoldersList = $derived(folders.filter((f) => selectedIds.has(f.id)));
+  const selectedEntries = $derived([
+    ...selectedFoldersList.map((f) => ({ id: f.id, name: f.name, type: "folder" as const })),
+    ...selectedFilesList.map((f) => ({ id: f.id, name: f.name, type: "file" as const })),
+  ]);
+
+  function clearSelection() {
+    selectedIds = new Set();
+    lastSelectedId = null;
+  }
+
+  function handleSelect(id: string, e: MouseEvent) {
+    if (e.shiftKey && lastSelectedId) {
+      const a = orderedIds.indexOf(lastSelectedId);
+      const b = orderedIds.indexOf(id);
+      if (a !== -1 && b !== -1) {
+        const [lo, hi] = a < b ? [a, b] : [b, a];
+        const next = new Set(selectedIds);
+        for (let i = lo; i <= hi; i++) next.add(orderedIds[i]);
+        selectedIds = next;
+      }
+      return;
+    }
+    if (e.ctrlKey || e.metaKey) {
+      const next = new Set(selectedIds);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      selectedIds = next;
+      lastSelectedId = id;
+      return;
+    }
+    // klik biasa: kalau cuma item ini yang terpilih, batalkan; selain itu pilih tunggal
+    if (selectedIds.size === 1 && selectedIds.has(id)) {
+      clearSelection();
+      return;
+    }
+    selectedIds = new Set([id]);
+    lastSelectedId = id;
+  }
+
+  // --- Bulk actions ---
+  let bulkEntries = $state<{ id: string; name: string; type: "file" | "folder" }[]>([]);
+
+  async function handleBulkStar() {
+    const entries = selectedEntries;
+    if (entries.length === 0) return;
+    const allStarred = [...selectedFoldersList, ...selectedFilesList].every((i) => i.starred);
+    const target = !allStarred;
+    try {
+      await Promise.all(
+        entries.map((e) =>
+          e.type === "folder"
+            ? foldersApi.toggleFolderStarred(e.id, target)
+            : filesApi.toggleFileStarred(e.id, target),
+        ),
+      );
+      toast.success(target ? "Ditandai bintang" : "Dihapus dari bintang");
+      clearSelection();
+      fetchContents(folderId);
+    } catch (err) {
+      handleApiError(err, "Gagal mengubah status bintang");
+    }
+  }
+
+  function handleBulkMove() {
+    if (selectedEntries.length === 0) return;
+    bulkEntries = selectedEntries;
+    moveItem = null;
+    moveOpen = true;
+  }
+
+  function handleBulkTrash() {
+    if (selectedEntries.length === 0) return;
+    bulkEntries = selectedEntries;
+    deleteConfirmItem = null;
+    deleteConfirmOpen = true;
+  }
+
+  // --- Marquee (rubber-band) selection ---
+  let contentEl = $state<HTMLDivElement | null>(null);
+  let marquee = $state<{ x: number; y: number; w: number; h: number } | null>(null);
+  let marqueeStart = { x: 0, y: 0 };
+  let marqueeAdditive = false;
+  let marqueeBase = new Set<string>();
+
+  function handleMarqueeStart(e: MouseEvent) {
+    if (e.button !== 0 || !contentEl) return;
+    const target = e.target as HTMLElement;
+    // Abaikan kalau mulai dari item/tombol; biar klik item normal jalan
+    if (target.closest("[data-select-id]") || target.closest("button")) return;
+
+    marqueeAdditive = e.ctrlKey || e.metaKey || e.shiftKey;
+    marqueeBase = marqueeAdditive ? new Set(selectedIds) : new Set();
+    if (!marqueeAdditive) clearSelection();
+
+    const rect = contentEl.getBoundingClientRect();
+    marqueeStart = {
+      x: e.clientX - rect.left + contentEl.scrollLeft,
+      y: e.clientY - rect.top + contentEl.scrollTop,
+    };
+    marquee = { x: marqueeStart.x, y: marqueeStart.y, w: 0, h: 0 };
+
+    window.addEventListener("mousemove", handleMarqueeMove);
+    window.addEventListener("mouseup", handleMarqueeEnd);
+  }
+
+  function handleMarqueeMove(e: MouseEvent) {
+    if (!contentEl || !marquee) return;
+    const rect = contentEl.getBoundingClientRect();
+    const curX = e.clientX - rect.left + contentEl.scrollLeft;
+    const curY = e.clientY - rect.top + contentEl.scrollTop;
+    const x = Math.min(marqueeStart.x, curX);
+    const y = Math.min(marqueeStart.y, curY);
+    const w = Math.abs(curX - marqueeStart.x);
+    const h = Math.abs(curY - marqueeStart.y);
+    marquee = { x, y, w, h };
+
+    // Hitung item yang beririsan dengan kotak
+    const boxLeft = x + rect.left - contentEl.scrollLeft;
+    const boxTop = y + rect.top - contentEl.scrollTop;
+    const boxRight = boxLeft + w;
+    const boxBottom = boxTop + h;
+
+    const next = new Set(marqueeBase);
+    const nodes = contentEl.querySelectorAll<HTMLElement>("[data-select-id]");
+    nodes.forEach((node) => {
+      const r = node.getBoundingClientRect();
+      const intersects =
+        r.left < boxRight && r.right > boxLeft && r.top < boxBottom && r.bottom > boxTop;
+      const id = node.dataset.selectId;
+      if (id && intersects) next.add(id);
+    });
+    selectedIds = next;
+  }
+
+  function handleMarqueeEnd() {
+    marquee = null;
+    if (selectedIds.size > 0) {
+      lastSelectedId = [...selectedIds][selectedIds.size - 1] ?? null;
+    }
+    window.removeEventListener("mousemove", handleMarqueeMove);
+    window.removeEventListener("mouseup", handleMarqueeEnd);
   }
 
   async function fetchContents(currentFolderId: string | null, search?: string) {
@@ -300,6 +451,8 @@
   }
 
   function handleDone() {
+    clearSelection();
+    bulkEntries = [];
     fetchContents(folderId);
   }
 
@@ -318,7 +471,7 @@
 
     // Escape: batal seleksi (modal punya handler sendiri)
     if (e.key === "Escape") {
-      if (!anyModalOpen) selectedId = null;
+      if (!anyModalOpen) clearSelection();
       return;
     }
 
@@ -331,27 +484,32 @@
 
     if (typing || anyModalOpen) return;
 
-    // Ctrl/Cmd + A: pilih item pertama (model seleksi tunggal)
+    // Ctrl/Cmd + A: pilih semua item
     if ((e.metaKey || e.ctrlKey) && (e.key === "a" || e.key === "A")) {
-      const first = sortedFolders()[0]?.id ?? sortedFiles()[0]?.id ?? null;
-      if (first) {
+      if (orderedIds.length > 0) {
         e.preventDefault();
-        selectedId = first;
+        selectedIds = new Set(orderedIds);
+        lastSelectedId = orderedIds[orderedIds.length - 1];
       }
       return;
     }
 
-    if (!selectedId) return;
+    if (selectedIds.size === 0) return;
 
     // Delete: trash item terpilih
     if (e.key === "Delete" || e.key === "Backspace") {
       e.preventDefault();
-      if (selectedFolder) handleFolderTrash(selectedFolder);
-      else if (selectedFile) handleFileTrash(selectedFile);
+      if (selectedIds.size > 1) {
+        handleBulkTrash();
+      } else if (selectedFolder) {
+        handleFolderTrash(selectedFolder);
+      } else if (selectedFile) {
+        handleFileTrash(selectedFile);
+      }
       return;
     }
 
-    // F2: rename item terpilih
+    // F2: rename item terpilih (hanya saat satu item)
     if (e.key === "F2") {
       e.preventDefault();
       if (selectedFolder) handleFolderRename(selectedFolder);
@@ -387,11 +545,14 @@
   onNewFolder={handleNewFolder}
 />
 
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
+  bind:this={contentEl}
   class="flex-1 p-4 md:p-6 space-y-6 overflow-y-auto relative"
   ondragover={handleDragOver}
   ondragleave={handleDragLeave}
   ondrop={handleDrop}
+  onmousedown={handleMarqueeStart}
   role="region"
   aria-label="File browser"
 >
@@ -402,6 +563,13 @@
         <span class="text-sm font-semibold">Drop file di sini untuk upload</span>
       </div>
     </div>
+  {/if}
+
+  {#if marquee}
+    <div
+      class="absolute z-20 border border-primary/70 bg-primary/10 pointer-events-none rounded-sm"
+      style="left: {marquee.x}px; top: {marquee.y}px; width: {marquee.w}px; height: {marquee.h}px;"
+    ></div>
   {/if}
 
   <div
@@ -434,7 +602,7 @@
     <GridView
       folders={sortedFolders()}
       files={sortedFiles()}
-      {selectedId}
+      {selectedIds}
       onSelect={handleSelect}
       onOpenFolder={navigateToFolder}
       onOpenFile={(id) => { const f = files.find((x) => x.id === id); if (f) openFile(f); }}
@@ -445,7 +613,7 @@
     <ListView
       folders={sortedFolders()}
       files={sortedFiles()}
-      {selectedId}
+      {selectedIds}
       onSelect={handleSelect}
       onOpenFolder={navigateToFolder}
       onOpenFile={(id) => { const f = files.find((x) => x.id === id); if (f) openFile(f); }}
@@ -529,6 +697,47 @@
   </div>
 {/if}
 
+<!-- Bulk Selection Action Bar -->
+{#if selectedIds.size > 1}
+  <div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 rounded-full border border-border/90 bg-card shadow-xl px-2 py-1.5 animate-in fade-in slide-in-from-bottom-3 duration-200">
+    <span class="text-xs font-medium text-foreground px-2.5">{selectedIds.size} dipilih</span>
+    <div class="w-px h-5 bg-border/70"></div>
+    <button
+      type="button"
+      onclick={handleBulkStar}
+      class="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full hover:bg-muted transition-colors cursor-pointer"
+    >
+      <StarIcon class="size-3.5" />
+      <span>Star</span>
+    </button>
+    <button
+      type="button"
+      onclick={handleBulkMove}
+      class="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full hover:bg-muted transition-colors cursor-pointer"
+    >
+      <FolderInputIcon class="size-3.5" />
+      <span>Move</span>
+    </button>
+    <button
+      type="button"
+      onclick={handleBulkTrash}
+      class="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+    >
+      <Trash2Icon class="size-3.5" />
+      <span>Trash</span>
+    </button>
+    <div class="w-px h-5 bg-border/70"></div>
+    <button
+      type="button"
+      onclick={clearSelection}
+      class="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+      aria-label="Batal pilih"
+    >
+      <XIcon class="size-3.5" />
+    </button>
+  </div>
+{/if}
+
 <!-- Context Menus -->
 <FileContextMenu
   bind:open={fileContextMenuOpen}
@@ -575,6 +784,7 @@
   bind:open={moveOpen}
   item={moveItem}
   itemType={moveType}
+  entries={moveItem ? null : bulkEntries}
   onDone={handleDone}
 />
 
@@ -582,6 +792,7 @@
   bind:open={deleteConfirmOpen}
   item={deleteConfirmItem}
   itemType={deleteConfirmType}
+  entries={deleteConfirmItem ? null : bulkEntries}
   onDone={handleDone}
 />
 

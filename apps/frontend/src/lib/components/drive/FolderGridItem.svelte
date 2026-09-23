@@ -14,7 +14,7 @@
     folder: FolderItem;
     selected?: boolean;
     onOpen?: (id: string) => void;
-    onSelect?: (id: string) => void;
+    onSelect?: (id: string, e: MouseEvent) => void;
     onContextMenu?: (e: MouseEvent, folder: FolderItem) => void;
   } = $props();
 </script>
@@ -23,10 +23,12 @@
   role="button"
   tabindex="0"
   aria-pressed={selected}
-  class="border bg-card rounded-lg p-3.5 relative flex flex-col gap-2 w-full text-left outline-none cursor-default transition-colors {selected ? 'border-primary ring-1 ring-primary/40' : 'border-border/70 hover:border-primary/50'}"
-  onclick={() => onSelect?.(folder.id)}
+  data-select-id={folder.id}
+  data-select-type="folder"
+  class="select-none border bg-card rounded-lg p-3.5 relative flex flex-col gap-2 w-full text-left outline-none cursor-default transition-colors {selected ? 'border-primary ring-1 ring-primary/40' : 'border-border/70 hover:border-primary/50'}"
+  onclick={(e) => onSelect?.(folder.id, e)}
   ondblclick={() => onOpen?.(folder.id)}
-  oncontextmenu={(e) => { onSelect?.(folder.id); onContextMenu?.(e, folder); }}
+  oncontextmenu={(e) => { onSelect?.(folder.id, e); onContextMenu?.(e, folder); }}
   onkeydown={(e) => { if (e.key === 'Enter') onOpen?.(folder.id); }}
 >
   {#if folder.starred}

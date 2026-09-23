@@ -7,7 +7,7 @@
 	let {
 		folders = [],
 		files = [],
-		selectedId = null,
+		selectedIds = new Set<string>(),
 		onOpenFolder,
 		onOpenFile,
 		onSelect,
@@ -16,10 +16,10 @@
 	} = $props<{
 		folders?: FolderItem[];
 		files?: FileItem[];
-		selectedId?: string | null;
+		selectedIds?: Set<string>;
 		onOpenFolder?: (id: string) => void;
 		onOpenFile?: (id: string) => void;
-		onSelect?: (id: string) => void;
+		onSelect?: (id: string, e: MouseEvent) => void;
 		onFolderContextMenu?: (e: MouseEvent, folder: FolderItem) => void;
 		onFileContextMenu?: (e: MouseEvent, file: FileItem) => void;
 	}>();
@@ -29,7 +29,7 @@
 	);
 </script>
 
-<div class="space-y-6">
+<div class="select-none space-y-6">
 	{#if folders.length > 0}
 		<section>
 			<div class="mb-3 text-xs font-mono font-semibold tracking-wider text-muted-foreground uppercase">
@@ -39,9 +39,9 @@
 				{#each folders as folder (folder.id)}
 					<FolderGridItem 
 						{folder} 
-						selected={selectedId === folder.id}
+						selected={selectedIds.has(folder.id)}
 						onOpen={() => onOpenFolder?.(folder.id)}
-						onSelect={() => onSelect?.(folder.id)}
+						onSelect={(id: string, e: MouseEvent) => onSelect?.(id, e)}
 						onContextMenu={(e: MouseEvent) => onFolderContextMenu?.(e, folder)}
 					/>
 				{/each}
@@ -63,9 +63,9 @@
 				{#each files as file (file.id)}
 					<FileGridItem 
 						{file} 
-						selected={selectedId === file.id}
+						selected={selectedIds.has(file.id)}
 						onOpen={() => onOpenFile?.(file.id)}
-						onSelect={() => onSelect?.(file.id)}
+						onSelect={(id: string, e: MouseEvent) => onSelect?.(id, e)}
 						onContextMenu={(e: MouseEvent) => onFileContextMenu?.(e, file)}
 					/>
 				{/each}

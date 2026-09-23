@@ -13,17 +13,40 @@
     open = $bindable(false),
     item = null,
     itemType = "file",
+    entries = null,
     onDone,
   }: {
     open: boolean;
     item: FileItem | FolderItem | null;
     itemType?: "file" | "folder";
+    entries?: { id: string; name: string; type: "file" | "folder" }[] | null;
     onDone?: () => void;
   } = $props();
+
+  const isBulk = $derived(!!entries && entries.length > 0);
 
   let loading = $state(false);
 
   async function handleTrash() {
+    if (isBulk) {
+      loading = true;
+      try {
+        await Promise.all(
+          (entries ?? []).map((e) =>
+            e.type === "folder" ? foldersApi.trashFolder(e.id) : filesApi.trashFile(e.id),
+          ),
+        );
+        toast.success(`${entries!.length} item dipindahkan ke trash`);
+        open = false;
+        onDone?.();
+      } catch (err) {
+        handleApiError(err, "Gagal menghapus");
+      } finally {
+        loading = false;
+      }
+      return;
+    }
+
     if (!item) return;
 
     loading = true;
@@ -49,10 +72,14 @@
     <Dialog.Header>
       <Dialog.Title class="flex items-center gap-2">
         <Trash2Icon class="size-4 text-destructive" />
-        Trash {itemType === "folder" ? "folder" : "file"}?
+        Trash {isBulk ? `${entries!.length} item` : itemType === "folder" ? "folder" : "file"}?
       </Dialog.Title>
       <Dialog.Description>
-        "{item?.name}" akan dipindahkan ke trash. Anda bisa memulihkannya nanti.
+        {#if isBulk}
+          {entries!.length} item akan dipindahkan ke trash. Anda bisa memulihkannya nanti.
+        {:else}
+          "{item?.name}" akan dipindahkan ke trash. Anda bisa memulihkannya nanti.
+        {/if}
       </Dialog.Description>
     </Dialog.Header>
 

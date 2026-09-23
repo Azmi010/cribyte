@@ -21,7 +21,7 @@
     file: FileItem;
     selected?: boolean;
     onOpen?: (id: string) => void;
-    onSelect?: (id: string) => void;
+    onSelect?: (id: string, e: MouseEvent) => void;
     onContextMenu?: (e: MouseEvent, file: FileItem) => void;
   } = $props();
 
@@ -37,10 +37,12 @@
   role="button"
   tabindex="0"
   aria-pressed={selected}
-  class="flex items-center py-2 px-3 border-b border-border/40 transition-colors w-full cursor-default outline-none gap-3 {selected ? 'bg-primary/10' : 'hover:bg-muted/30'}"
-  onclick={() => onSelect?.(file.id)}
+  data-select-id={file.id}
+  data-select-type="file"
+  class="select-none flex items-center py-2 px-3 border-b border-border/40 transition-colors w-full cursor-default outline-none gap-3 {selected ? 'bg-primary/10' : 'hover:bg-muted/30'}"
+  onclick={(e) => onSelect?.(file.id, e)}
   ondblclick={() => onOpen?.(file.id)}
-  oncontextmenu={(e) => { onSelect?.(file.id); onContextMenu?.(e, file); }}
+  oncontextmenu={(e) => { onSelect?.(file.id, e); onContextMenu?.(e, file); }}
   onkeydown={(e) => { if (e.key === 'Enter') onOpen?.(file.id); }}
 >
   <div class="shrink-0 flex items-center justify-center w-5">

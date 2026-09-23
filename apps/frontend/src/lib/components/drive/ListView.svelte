@@ -6,7 +6,7 @@
 	let {
 		folders = [],
 		files = [],
-		selectedId = null,
+		selectedIds = new Set<string>(),
 		onOpenFolder,
 		onOpenFile,
 		onSelect,
@@ -15,16 +15,16 @@
 	} = $props<{
 		folders?: FolderItem[];
 		files?: FileItem[];
-		selectedId?: string | null;
+		selectedIds?: Set<string>;
 		onOpenFolder?: (id: string) => void;
 		onOpenFile?: (id: string) => void;
-		onSelect?: (id: string) => void;
+		onSelect?: (id: string, e: MouseEvent) => void;
 		onFolderContextMenu?: (e: MouseEvent, folder: FolderItem) => void;
 		onFileContextMenu?: (e: MouseEvent, file: FileItem) => void;
 	}>();
 </script>
 
-<div class="border rounded-md bg-card overflow-hidden">
+<div class="select-none border rounded-md bg-card overflow-hidden">
 	<div class="sticky top-0 z-10 flex items-center px-4 py-2 border-b bg-muted/30 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
 		<div class="flex-1">Name</div>
 		<div class="w-8"></div>
@@ -37,9 +37,9 @@
 		{#each folders as folder (folder.id)}
 			<FolderListItem 
 				{folder} 
-				selected={selectedId === folder.id}
+				selected={selectedIds.has(folder.id)}
 				onOpen={() => onOpenFolder?.(folder.id)}
-				onSelect={() => onSelect?.(folder.id)}
+				onSelect={(id: string, e: MouseEvent) => onSelect?.(id, e)}
 				onContextMenu={(e: MouseEvent) => onFolderContextMenu?.(e, folder)}
 			/>
 		{/each}
@@ -47,9 +47,9 @@
 		{#each files as file (file.id)}
 			<FileListItem 
 				{file} 
-				selected={selectedId === file.id}
+				selected={selectedIds.has(file.id)}
 				onOpen={() => onOpenFile?.(file.id)}
-				onSelect={() => onSelect?.(file.id)}
+				onSelect={(id: string, e: MouseEvent) => onSelect?.(id, e)}
 				onContextMenu={(e: MouseEvent) => onFileContextMenu?.(e, file)}
 			/>
 		{/each}

@@ -14,7 +14,7 @@
     folder: FolderItem;
     selected?: boolean;
     onOpen?: (id: string) => void;
-    onSelect?: (id: string) => void;
+    onSelect?: (id: string, e: MouseEvent) => void;
     onContextMenu?: (e: MouseEvent, folder: FolderItem) => void;
   } = $props();
 
@@ -28,10 +28,12 @@
   role="button"
   tabindex="0"
   aria-pressed={selected}
-  class="flex items-center py-2 px-3 border-b border-border/40 transition-colors w-full cursor-default outline-none gap-3 {selected ? 'bg-primary/10' : 'hover:bg-muted/30'}"
-  onclick={() => onSelect?.(folder.id)}
+  data-select-id={folder.id}
+  data-select-type="folder"
+  class="select-none flex items-center py-2 px-3 border-b border-border/40 transition-colors w-full cursor-default outline-none gap-3 {selected ? 'bg-primary/10' : 'hover:bg-muted/30'}"
+  onclick={(e) => onSelect?.(folder.id, e)}
   ondblclick={() => onOpen?.(folder.id)}
-  oncontextmenu={(e) => { onSelect?.(folder.id); onContextMenu?.(e, folder); }}
+  oncontextmenu={(e) => { onSelect?.(folder.id, e); onContextMenu?.(e, folder); }}
   onkeydown={(e) => { if (e.key === 'Enter') onOpen?.(folder.id); }}
 >
   <Folder class="size-5 text-primary fill-primary/15 shrink-0" />

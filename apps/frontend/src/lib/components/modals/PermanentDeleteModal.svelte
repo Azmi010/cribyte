@@ -13,17 +13,42 @@
     open = $bindable(false),
     item = null,
     itemType = "file",
+    entries = null,
     onDone,
   }: {
     open: boolean;
     item: FileItem | FolderItem | null;
     itemType?: "file" | "folder";
+    entries?: { id: string; name: string; type: "file" | "folder" }[] | null;
     onDone?: () => void;
   } = $props();
+
+  const isBulk = $derived(!!entries && entries.length > 0);
 
   let loading = $state(false);
 
   async function handlePermanentDelete() {
+    if (isBulk) {
+      loading = true;
+      try {
+        await Promise.all(
+          (entries ?? []).map((e) =>
+            e.type === "folder"
+              ? foldersApi.permanentDeleteFolder(e.id)
+              : filesApi.permanentDeleteFile(e.id),
+          ),
+        );
+        toast.success(`${entries!.length} item dihapus permanen`);
+        open = false;
+        onDone?.();
+      } catch (err) {
+        handleApiError(err, "Gagal menghapus permanen");
+      } finally {
+        loading = false;
+      }
+      return;
+    }
+
     if (!item) return;
 
     loading = true;
@@ -52,7 +77,11 @@
         Hapus permanen?
       </Dialog.Title>
       <Dialog.Description>
-        "{item?.name}" akan dihapus secara permanen. Tindakan ini tidak bisa dibatalkan.
+        {#if isBulk}
+          {entries!.length} item akan dihapus secara permanen. Tindakan ini tidak bisa dibatalkan.
+        {:else}
+          "{item?.name}" akan dihapus secara permanen. Tindakan ini tidak bisa dibatalkan.
+        {/if}
       </Dialog.Description>
     </Dialog.Header>
 
