@@ -135,6 +135,9 @@ func (h *Handler) ListContents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := chi.URLParam(r, "id")
+	if id == "" {
+		id = r.URL.Query().Get("folder_id")
+	}
 
 	var parentID *string
 	if id != "" {
