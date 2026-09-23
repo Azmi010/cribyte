@@ -11,6 +11,7 @@
   import MoonIcon from "@lucide/svelte/icons/moon";
   import Logo from "$lib/components/Logo.svelte";
   import { uploadStore } from "$lib/stores/upload.svelte";
+  import { driveRefresh } from "$lib/stores/drive.svelte";
   import { toggleMode, mode } from "mode-watcher";
 
   let {
@@ -39,9 +40,10 @@
     const input = e.target as HTMLInputElement;
     if (!input.files || input.files.length === 0) return;
 
+    const parentFolderId = driveRefresh.folderId;
     for (let i = 0; i < input.files.length; i++) {
       const file = input.files[i];
-      uploadStore.addUpload(file, null);
+      uploadStore.addUpload(file, parentFolderId, () => driveRefresh.run());
     }
     input.value = "";
     if (isMobile) onClose?.();

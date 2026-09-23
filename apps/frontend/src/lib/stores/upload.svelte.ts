@@ -10,6 +10,7 @@ export interface UploadEntry {
   status: UploadStatus;
   error?: string;
   abort?: () => void;
+  onDone?: () => void;
 }
 
 const uploads: UploadEntry[] = $state([]);
@@ -25,7 +26,11 @@ export const uploadStore = {
     return uploads.some((u) => u.status === "uploading" || u.status === "pending");
   },
 
-  addUpload(file: File, parentFolderId: string | null): string {
+  get hasAny() {
+    return uploads.length > 0;
+  },
+
+  addUpload(file: File, parentFolderId: string | null, onDone?: () => void): string {
     const id = `upload-${++idCounter}-${Date.now()}`;
 
     const entry: UploadEntry = $state({
@@ -34,6 +39,7 @@ export const uploadStore = {
       parentFolderId,
       progress: 0,
       status: "pending",
+      onDone,
     });
 
     uploads.push(entry);
@@ -85,6 +91,7 @@ function startUpload(entry: UploadEntry) {
     .then(() => {
       entry.status = "done";
       entry.progress = 100;
+      entry.onDone?.();
     })
     .catch((err) => {
       if (err instanceof Error && err.message === "Upload cancelled") {

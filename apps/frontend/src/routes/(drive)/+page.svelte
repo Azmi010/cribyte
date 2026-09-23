@@ -5,6 +5,7 @@
   import { formatFileSize } from "$lib/constants";
   import { view } from "$lib/stores/view.svelte";
   import { uploadStore } from "$lib/stores/upload.svelte";
+  import { driveRefresh } from "$lib/stores/drive.svelte";
   import { searchQuery } from "$lib/stores/search";
   import * as filesApi from "$lib/api/files";
   import * as foldersApi from "$lib/api/folders";
@@ -22,6 +23,8 @@
   import FilePreviewModal from "$lib/components/modals/FilePreviewModal.svelte";
   import CloudUploadIcon from "@lucide/svelte/icons/cloud-upload";
   import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
+  import CheckIcon from "@lucide/svelte/icons/check";
+  import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
   import XIcon from "@lucide/svelte/icons/x";
   import { toast } from "svelte-sonner";
   import { handleApiError } from "$lib/api/errors";
@@ -119,6 +122,12 @@
 
   $effect(() => {
     fetchContents(folderId);
+  });
+
+  $effect(() => {
+    const fn = () => fetchContents(folderId);
+    driveRefresh.register(fn, folderId);
+    return () => driveRefresh.unregister(fn);
   });
 
   $effect(() => {
@@ -283,7 +292,7 @@
     if (!droppedFiles || droppedFiles.length === 0) return;
 
     for (let i = 0; i < droppedFiles.length; i++) {
-      uploadStore.addUpload(droppedFiles[i], folderId);
+      uploadStore.addUpload(droppedFiles[i], folderId, () => fetchContents(folderId));
     }
     toast.success(`${droppedFiles.length} file ditambahkan ke antrian upload`);
   }
@@ -351,11 +360,12 @@
   function handleUploadInput(e: Event) {
     const input = e.target as HTMLInputElement;
     if (!input.files || input.files.length === 0) return;
+    const count = input.files.length;
     for (let i = 0; i < input.files.length; i++) {
-      uploadStore.addUpload(input.files[i], folderId);
+      uploadStore.addUpload(input.files[i], folderId, () => fetchContents(folderId));
     }
     input.value = "";
-    toast.success(`${input.files.length} file ditambahkan ke antrian upload`);
+    toast.success(`${count} file ditambahkan ke antrian upload`);
   }
 </script>
 
@@ -444,36 +454,77 @@
 </div>
 
 <!-- Floating Upload Progress Bar Widget -->
-{#if uploadStore.hasActive}
-  {@const activeUpload = uploadStore.uploads.find((u) => u.status === "uploading")}
-  {#if activeUpload}
-    <div class="fixed bottom-4 right-4 z-50 w-80 rounded-lg border border-border/90 bg-card shadow-xl p-3.5 space-y-2.5 animate-in fade-in slide-in-from-bottom-3 duration-200">
-      <div class="flex items-center justify-between text-xs">
-        <div class="flex items-center gap-2 font-medium text-foreground truncate">
-          <RefreshCwIcon class="size-3.5 text-primary animate-spin" />
-          <span class="truncate">Uploading {activeUpload.file.name}</span>
-        </div>
-        <button
-          type="button"
-          onclick={() => uploadStore.removeUpload(activeUpload.id)}
-          class="text-muted-foreground hover:text-foreground cursor-pointer p-0.5"
-          aria-label="Cancel upload"
-        >
-          <XIcon class="size-3.5" />
-        </button>
+{#if uploadStore.hasAny}
+  {@const activeCount = uploadStore.uploads.filter((u) => u.status === "uploading" || u.status === "pending").length}
+  {@const doneCount = uploadStore.uploads.filter((u) => u.status === "done").length}
+  <div class="fixed bottom-4 right-4 z-50 w-80 rounded-lg border border-border/90 bg-card shadow-xl animate-in fade-in slide-in-from-bottom-3 duration-200 overflow-hidden">
+    <div class="flex items-center justify-between px-3.5 py-2.5 border-b border-border/70">
+      <div class="text-xs font-semibold text-foreground">
+        {#if activeCount > 0}
+          Uploading {activeCount} file(s)
+        {:else}
+          Upload selesai — {doneCount} file
+        {/if}
       </div>
-      <div class="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-        <div
-          class="h-full bg-primary rounded-full transition-all duration-300"
-          style="width: {activeUpload.progress}%"
-        ></div>
-      </div>
-      <div class="flex items-center justify-between text-[11px] font-mono text-muted-foreground">
-        <span>{activeUpload.progress}% of {formatFileSize(activeUpload.file.size)}</span>
-        <span>{uploadStore.uploads.filter((u) => u.status === "uploading" || u.status === "pending").length} file(s)</span>
+      <div class="flex items-center gap-1">
+        {#if activeCount === 0}
+          <button
+            type="button"
+            onclick={() => uploadStore.clearCompleted()}
+            class="text-muted-foreground hover:text-foreground cursor-pointer p-0.5"
+            aria-label="Tutup"
+          >
+            <XIcon class="size-3.5" />
+          </button>
+        {/if}
       </div>
     </div>
-  {/if}
+    <div class="max-h-64 overflow-y-auto divide-y divide-border/50">
+      {#each uploadStore.uploads as u (u.id)}
+        <div class="px-3.5 py-2.5 space-y-2">
+          <div class="flex items-center justify-between text-xs gap-2">
+            <div class="flex items-center gap-2 font-medium text-foreground truncate min-w-0">
+              {#if u.status === "done"}
+                <CheckIcon class="size-3.5 text-green-500 shrink-0" />
+              {:else if u.status === "error"}
+                <CircleAlertIcon class="size-3.5 text-destructive shrink-0" />
+              {:else}
+                <RefreshCwIcon class="size-3.5 text-primary animate-spin shrink-0" />
+              {/if}
+              <span class="truncate">{u.file.name}</span>
+            </div>
+            <button
+              type="button"
+              onclick={() => uploadStore.removeUpload(u.id)}
+              class="text-muted-foreground hover:text-foreground cursor-pointer p-0.5 shrink-0"
+              aria-label={u.status === "uploading" || u.status === "pending" ? "Batalkan upload" : "Hapus dari daftar"}
+            >
+              <XIcon class="size-3.5" />
+            </button>
+          </div>
+          {#if u.status === "uploading" || u.status === "pending"}
+            <div class="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+              <div
+                class="h-full bg-primary rounded-full transition-all duration-300"
+                style="width: {u.progress}%"
+              ></div>
+            </div>
+            <div class="text-[11px] font-mono text-muted-foreground">
+              {u.progress}% of {formatFileSize(u.file.size)}
+            </div>
+          {:else if u.status === "done"}
+            <div class="text-[11px] font-mono text-green-500">
+              Berhasil · {formatFileSize(u.file.size)}
+            </div>
+          {:else}
+            <div class="text-[11px] font-mono text-destructive truncate">
+              {u.error ?? "Upload gagal"}
+            </div>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  </div>
 {/if}
 
 <!-- Context Menus -->
