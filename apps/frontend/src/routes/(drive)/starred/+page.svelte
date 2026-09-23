@@ -15,7 +15,6 @@
   import MoveModal from "$lib/components/modals/MoveModal.svelte";
   import DeleteConfirmModal from "$lib/components/modals/DeleteConfirmModal.svelte";
   import FilePreviewModal from "$lib/components/modals/FilePreviewModal.svelte";
-  import StarIcon from "@lucide/svelte/icons/star";
   import StarOffIcon from "@lucide/svelte/icons/star-off";
   import FolderInputIcon from "@lucide/svelte/icons/folder-input";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
@@ -75,8 +74,7 @@
   let contentEl = $state<HTMLDivElement | null>(null);
   const mq = createMarquee(
     () => contentEl,
-    () => sel.selectedIds,
-    (v) => (sel.selectedIds = v),
+    sel.selectedIds,
     (id) => (sel.lastSelectedId = id),
     () => sel.clear(),
   );

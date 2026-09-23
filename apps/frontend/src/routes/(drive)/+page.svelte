@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
+  import { SvelteSet } from "svelte/reactivity";
   import type { FileItem, FolderItem } from "$lib/types";
   import { formatFileSize } from "$lib/constants";
   import { view } from "$lib/stores/view.svelte";
@@ -71,7 +72,7 @@
   const isEmpty = $derived(folders.length === 0 && files.length === 0 && !loading);
 
   // --- Selection (multi-item) ---
-  let selectedIds = $state(new Set<string>());
+  const selectedIds = new SvelteSet<string>();
   let lastSelectedId = $state<string | null>(null);
   let uploadInputRef = $state<HTMLInputElement | null>(null);
 
@@ -92,8 +93,13 @@
   ]);
 
   function clearSelection() {
-    selectedIds = new Set();
+    selectedIds.clear();
     lastSelectedId = null;
+  }
+
+  function replaceSelection(ids: Iterable<string>) {
+    selectedIds.clear();
+    for (const id of ids) selectedIds.add(id);
   }
 
   function handleSelect(id: string, e: MouseEvent) {
@@ -102,17 +108,13 @@
       const b = orderedIds.indexOf(id);
       if (a !== -1 && b !== -1) {
         const [lo, hi] = a < b ? [a, b] : [b, a];
-        const next = new Set(selectedIds);
-        for (let i = lo; i <= hi; i++) next.add(orderedIds[i]);
-        selectedIds = next;
+        for (let i = lo; i <= hi; i++) selectedIds.add(orderedIds[i]);
       }
       return;
     }
     if (e.ctrlKey || e.metaKey) {
-      const next = new Set(selectedIds);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      selectedIds = next;
+      if (selectedIds.has(id)) selectedIds.delete(id);
+      else selectedIds.add(id);
       lastSelectedId = id;
       return;
     }
@@ -121,7 +123,7 @@
       clearSelection();
       return;
     }
-    selectedIds = new Set([id]);
+    replaceSelection([id]);
     lastSelectedId = id;
   }
 
@@ -168,7 +170,7 @@
   let marquee = $state<{ x: number; y: number; w: number; h: number } | null>(null);
   let marqueeStart = { x: 0, y: 0 };
   let marqueeAdditive = false;
-  let marqueeBase = new Set<string>();
+  let marqueeBase: string[] = [];
 
   function handleMarqueeStart(e: MouseEvent) {
     if (e.button !== 0 || !contentEl) return;
@@ -177,7 +179,7 @@
     if (target.closest("[data-select-id]") || target.closest("button")) return;
 
     marqueeAdditive = e.ctrlKey || e.metaKey || e.shiftKey;
-    marqueeBase = marqueeAdditive ? new Set(selectedIds) : new Set();
+    marqueeBase = marqueeAdditive ? [...selectedIds] : [];
     if (!marqueeAdditive) clearSelection();
 
     const rect = contentEl.getBoundingClientRect();
@@ -208,6 +210,8 @@
     const boxRight = boxLeft + w;
     const boxBottom = boxTop + h;
 
+    // Set lokal non-reaktif untuk hitung irisan
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity
     const next = new Set(marqueeBase);
     const nodes = contentEl.querySelectorAll<HTMLElement>("[data-select-id]");
     nodes.forEach((node) => {
@@ -217,7 +221,10 @@
       const id = node.dataset.selectId;
       if (id && intersects) next.add(id);
     });
-    selectedIds = next;
+    for (const id of [...selectedIds]) {
+      if (!next.has(id)) selectedIds.delete(id);
+    }
+    for (const id of next) selectedIds.add(id);
   }
 
   function handleMarqueeEnd() {
@@ -488,7 +495,7 @@
     if ((e.metaKey || e.ctrlKey) && (e.key === "a" || e.key === "A")) {
       if (orderedIds.length > 0) {
         e.preventDefault();
-        selectedIds = new Set(orderedIds);
+        replaceSelection(orderedIds);
         lastSelectedId = orderedIds[orderedIds.length - 1];
       }
       return;

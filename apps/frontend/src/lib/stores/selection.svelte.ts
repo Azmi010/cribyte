@@ -1,4 +1,5 @@
 import type { FileItem, FolderItem } from "$lib/types";
+import { SvelteSet } from "svelte/reactivity";
 
 export interface SelectEntry {
   id: string;
@@ -12,7 +13,7 @@ export interface SelectEntry {
  * dan marquee (rubber-band) selection di area kosong.
  */
 export function createSelection(getFolders: () => FolderItem[], getFiles: () => FileItem[]) {
-  let selectedIds = $state(new Set<string>());
+  const selectedIds = new SvelteSet<string>();
   let lastSelectedId = $state<string | null>(null);
 
   const orderedIds = $derived([...getFolders().map((f) => f.id), ...getFiles().map((f) => f.id)]);
@@ -27,8 +28,13 @@ export function createSelection(getFolders: () => FolderItem[], getFiles: () => 
     ...selectedFilesList.map((f) => ({ id: f.id, name: f.name, type: "file" as const })),
   ]);
 
+  function replace(ids: Iterable<string>) {
+    selectedIds.clear();
+    for (const id of ids) selectedIds.add(id);
+  }
+
   function clear() {
-    selectedIds = new Set();
+    selectedIds.clear();
     lastSelectedId = null;
   }
 
@@ -38,17 +44,13 @@ export function createSelection(getFolders: () => FolderItem[], getFiles: () => 
       const b = orderedIds.indexOf(id);
       if (a !== -1 && b !== -1) {
         const [lo, hi] = a < b ? [a, b] : [b, a];
-        const next = new Set(selectedIds);
-        for (let i = lo; i <= hi; i++) next.add(orderedIds[i]);
-        selectedIds = next;
+        for (let i = lo; i <= hi; i++) selectedIds.add(orderedIds[i]);
       }
       return;
     }
     if (e.ctrlKey || e.metaKey) {
-      const next = new Set(selectedIds);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      selectedIds = next;
+      if (selectedIds.has(id)) selectedIds.delete(id);
+      else selectedIds.add(id);
       lastSelectedId = id;
       return;
     }
@@ -56,22 +58,19 @@ export function createSelection(getFolders: () => FolderItem[], getFiles: () => 
       clear();
       return;
     }
-    selectedIds = new Set([id]);
+    replace([id]);
     lastSelectedId = id;
   }
 
   function selectAll() {
     if (orderedIds.length === 0) return;
-    selectedIds = new Set(orderedIds);
+    replace(orderedIds);
     lastSelectedId = orderedIds[orderedIds.length - 1];
   }
 
   return {
     get selectedIds() {
       return selectedIds;
-    },
-    set selectedIds(v: Set<string>) {
-      selectedIds = v;
     },
     get lastSelectedId() {
       return lastSelectedId;
@@ -94,6 +93,7 @@ export function createSelection(getFolders: () => FolderItem[], getFiles: () => 
     get selectedEntries() {
       return selectedEntries;
     },
+    replace,
     clear,
     handleSelect,
     selectAll,
@@ -106,15 +106,14 @@ export function createSelection(getFolders: () => FolderItem[], getFiles: () => 
  */
 export function createMarquee(
   getContentEl: () => HTMLElement | null,
-  getSelectedIds: () => Set<string>,
-  setSelectedIds: (v: Set<string>) => void,
+  selectedIds: SvelteSet<string>,
   setLastSelectedId: (id: string | null) => void,
   clearSelection: () => void,
 ) {
   let marquee = $state<{ x: number; y: number; w: number; h: number } | null>(null);
   let start = { x: 0, y: 0 };
   let additive = false;
-  let base = new Set<string>();
+  let base: string[] = [];
 
   function onStart(e: MouseEvent) {
     const contentEl = getContentEl();
@@ -123,7 +122,7 @@ export function createMarquee(
     if (target.closest("[data-select-id]") || target.closest("button")) return;
 
     additive = e.ctrlKey || e.metaKey || e.shiftKey;
-    base = additive ? new Set(getSelectedIds()) : new Set();
+    base = additive ? [...selectedIds] : [];
     if (!additive) clearSelection();
 
     const rect = contentEl.getBoundingClientRect();
@@ -154,6 +153,8 @@ export function createMarquee(
     const boxRight = boxLeft + w;
     const boxBottom = boxTop + h;
 
+    // Set lokal non-reaktif untuk hitung irisan
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity
     const next = new Set(base);
     const nodes = contentEl.querySelectorAll<HTMLElement>("[data-select-id]");
     nodes.forEach((node) => {
@@ -163,14 +164,17 @@ export function createMarquee(
       const id = node.dataset.selectId;
       if (id && intersects) next.add(id);
     });
-    setSelectedIds(next);
+    // Sinkronkan isi SvelteSet dengan hasil hitung tanpa membuat instance baru
+    for (const id of [...selectedIds]) {
+      if (!next.has(id)) selectedIds.delete(id);
+    }
+    for (const id of next) selectedIds.add(id);
   }
 
   function onEnd() {
     marquee = null;
-    const ids = getSelectedIds();
-    if (ids.size > 0) {
-      setLastSelectedId([...ids][ids.size - 1] ?? null);
+    if (selectedIds.size > 0) {
+      setLastSelectedId([...selectedIds][selectedIds.size - 1] ?? null);
     }
     window.removeEventListener("mousemove", onMove);
     window.removeEventListener("mouseup", onEnd);

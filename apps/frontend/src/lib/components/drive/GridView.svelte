@@ -16,7 +16,7 @@
 	} = $props<{
 		folders?: FolderItem[];
 		files?: FileItem[];
-		selectedIds?: Set<string>;
+		selectedIds?: Set<string> | import('svelte/reactivity').SvelteSet<string>;
 		onOpenFolder?: (id: string) => void;
 		onOpenFile?: (id: string) => void;
 		onSelect?: (id: string, e: MouseEvent) => void;

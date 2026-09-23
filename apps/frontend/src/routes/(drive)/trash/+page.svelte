@@ -73,8 +73,7 @@
   let contentEl = $state<HTMLDivElement | null>(null);
   const mq = createMarquee(
     () => contentEl,
-    () => sel.selectedIds,
-    (v) => (sel.selectedIds = v),
+    sel.selectedIds,
     (id) => (sel.lastSelectedId = id),
     () => sel.clear(),
   );
