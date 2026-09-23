@@ -171,6 +171,7 @@
 
   function handleFolderContextMenu(e: MouseEvent, folder: FolderItem) {
     e.preventDefault();
+    fileContextMenuOpen = false;
     folderContextMenuItem = folder;
     folderContextMenuX = e.clientX;
     folderContextMenuY = e.clientY;
@@ -179,6 +180,7 @@
 
   function handleFileContextMenu(e: MouseEvent, file: FileItem) {
     e.preventDefault();
+    folderContextMenuOpen = false;
     fileContextMenuItem = file;
     fileContextMenuX = e.clientX;
     fileContextMenuY = e.clientY;

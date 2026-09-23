@@ -38,6 +38,34 @@
   } = $props();
 
   let menuEl: HTMLDivElement = $state(null!);
+  let posX = $state<number | null>(null);
+  let posY = $state<number | null>(null);
+
+  $effect(() => {
+    if (!open) {
+      posX = null;
+      posY = null;
+      return;
+    }
+    if (!menuEl) return;
+    // baca x/y supaya effect re-run saat posisi berubah
+    void x;
+    void y;
+    const rect = menuEl.getBoundingClientRect();
+    const margin = 8;
+    let nx = x;
+    let ny = y;
+    if (nx + rect.width > window.innerWidth - margin) {
+      nx = Math.max(margin, x - rect.width);
+    }
+    if (ny + rect.height > window.innerHeight - margin) {
+      ny = Math.max(margin, y - rect.height);
+    }
+    nx = Math.max(margin, Math.min(nx, window.innerWidth - rect.width - margin));
+    ny = Math.max(margin, Math.min(ny, window.innerHeight - rect.height - margin));
+    posX = nx;
+    posY = ny;
+  });
 
   function handleClick(e: MouseEvent) {
     if (menuEl && !menuEl.contains(e.target as Node)) {
@@ -71,7 +99,7 @@
   <div
     bind:this={menuEl}
     class="fixed z-50 min-w-[180px] bg-popover text-popover-foreground ring-foreground/10 rounded-md p-1 shadow-md ring-1 animate-in fade-in zoom-in-95 duration-100"
-    style="left: {x}px; top: {y}px;"
+    style="left: {posX ?? x}px; top: {posY ?? y}px; {posX === null ? 'visibility:hidden;' : ''}"
   >
     {#if context === "trash"}
       <button
