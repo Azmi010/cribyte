@@ -23,6 +23,10 @@ type Config struct {
 	// Auth / Session
 	SessionSecret      string
 	SessionExpiryHours int
+
+	// Thumbnails (external tool paths; empty = look up on PATH)
+	FfmpegPath   string
+	PdftoppmPath string
 }
 
 type S3Config struct {
@@ -45,6 +49,8 @@ func Load() (*Config, error) {
 		StorageLocalPath:   getEnv("STORAGE_LOCAL_PATH", "./data/uploads"),
 		SessionSecret:      getEnv("SESSION_SECRET", "default-dev-secret-key-change-me"),
 		SessionExpiryHours: getEnvInt("SESSION_EXPIRY_HOURS", 168),
+		FfmpegPath:         getEnv("FFMPEG_PATH", ""),
+		PdftoppmPath:       getEnv("PDFTOPPM_PATH", ""),
 		StorageS3: S3Config{
 			Endpoint:  getEnv("STORAGE_S3_ENDPOINT", "localhost:9000"),
 			Bucket:    getEnv("STORAGE_S3_BUCKET", "cribyte"),

@@ -76,6 +76,13 @@ func (r *Repository) SetStarred(ctx context.Context, params db.SetFileStarredPar
 	return r.queries.SetFileStarred(ctx, params)
 }
 
+func (r *Repository) SetThumbnailKey(ctx context.Context, id string, thumbnailKey sql.NullString) error {
+	return r.queries.SetFileThumbnailKey(ctx, db.SetFileThumbnailKeyParams{
+		ThumbnailKey: thumbnailKey,
+		ID:           id,
+	})
+}
+
 func (r *Repository) SearchByName(ctx context.Context, params db.SearchFilesByNameParams) ([]db.File, error) {
 	return r.queries.SearchFilesByName(ctx, params)
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/Azmi010/cribyte/apps/backend/internal/ratelimit"
 	"github.com/Azmi010/cribyte/apps/backend/internal/session"
 	"github.com/Azmi010/cribyte/apps/backend/internal/storage"
+	"github.com/Azmi010/cribyte/apps/backend/internal/thumbnail"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	httpSwagger "github.com/swaggo/http-swagger"
@@ -86,6 +87,10 @@ func main() {
 
 	fileRepo := file.NewRepository(queries)
 	fileSvc := file.NewService(fileRepo, storageDriver)
+	fileSvc.SetThumbnailOptions(thumbnail.Options{
+		FfmpegPath:   cfg.FfmpegPath,
+		PdftoppmPath: cfg.PdftoppmPath,
+	})
 	fileHandler := file.NewHandler(fileSvc, storageDriver)
 
 	rl := ratelimit.New(10, 20) // 10 req/s, burst 20
@@ -143,6 +148,7 @@ func main() {
 		r.Get("/{id}", fileHandler.GetByID)
 		r.Get("/{id}/preview", fileHandler.Preview)
 		r.Get("/{id}/serve", fileHandler.ServeContent)
+		r.Get("/{id}/thumbnail", fileHandler.Thumbnail)
 		r.Get("/{id}/download", fileHandler.Download)
 		r.Patch("/{id}", fileHandler.Rename)
 		r.Delete("/{id}", fileHandler.Trash)

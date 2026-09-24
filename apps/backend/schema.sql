@@ -34,6 +34,8 @@ CREATE TABLE files (
     owner_id         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at       TIMESTAMP NOT NULL,
     updated_at       TIMESTAMP NOT NULL,
+    -- Added via migration 00002; appended last to match ALTER TABLE column order.
+    thumbnail_key    TEXT,
     UNIQUE (owner_id, parent_folder_id, name)
 );
 

@@ -1,6 +1,7 @@
 package file
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
@@ -8,12 +9,14 @@ import (
 	"io"
 	"log/slog"
 	"mime"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/Azmi010/cribyte/apps/backend/internal/db"
 	"github.com/Azmi010/cribyte/apps/backend/internal/storage"
+	"github.com/Azmi010/cribyte/apps/backend/internal/thumbnail"
 	"github.com/google/uuid"
 )
 
@@ -27,17 +30,22 @@ var (
 	ErrNameConflict = errors.New("file with this name already exists")
 	ErrTooLarge     = errors.New("file exceeds maximum upload size")
 	ErrNotTextFile  = errors.New("file is not a text file")
+	ErrNoThumbnail  = errors.New("file has no thumbnail")
 )
 
 type Service struct {
-	repo    *Repository
-	storage storage.Storage
+	repo      *Repository
+	storage   storage.Storage
+	thumbOpts thumbnail.Options
 }
 
 func NewService(repo *Repository, storage storage.Storage) *Service {
 	return &Service{repo: repo, storage: storage}
 }
 
+func (s *Service) SetThumbnailOptions(opts thumbnail.Options) {
+	s.thumbOpts = opts
+}
 type UploadResult struct {
 	ID             string    `json:"id"`
 	Name           string    `json:"name"`
@@ -57,6 +65,7 @@ type FileResult struct {
 	Size           int64     `json:"size"`
 	Extension      *string   `json:"extension"`
 	Starred        bool      `json:"starred"`
+	HasThumbnail   bool      `json:"has_thumbnail"`
 	ParentFolderID *string   `json:"parent_folder_id"`
 	OwnerID        string    `json:"owner_id"`
 	CreatedAt      time.Time `json:"created_at"`
@@ -107,6 +116,7 @@ func toResult(f db.File) FileResult {
 		Size:           f.Size,
 		Extension:      ext,
 		Starred:        f.Starred,
+		HasThumbnail:   f.ThumbnailKey.Valid && f.ThumbnailKey.String != "",
 		ParentFolderID: parentID,
 		OwnerID:        f.OwnerID,
 		CreatedAt:      f.CreatedAt,
@@ -161,6 +171,11 @@ func (s *Service) Upload(ctx context.Context, ownerID string, name string, paren
 	}
 
 	slog.Info("file uploaded", "id", file.ID, "name", file.Name, "size", file.Size)
+
+	if thumbnailKind(file.MimeType) != PreviewKindOther {
+		go s.generateAndStoreThumbnail(file)
+	}
+
 	return UploadResult{
 		ID:             file.ID,
 		Name:           file.Name,
@@ -172,6 +187,32 @@ func (s *Service) Upload(ctx context.Context, ownerID string, name string, paren
 		CreatedAt:      file.CreatedAt,
 		UpdatedAt:      file.UpdatedAt,
 	}, nil
+}
+
+func (s *Service) generateAndStoreThumbnail(file db.File) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	kind := thumbnailKind(file.MimeType)
+	data, err := s.generateThumbnail(ctx, file, kind)
+	if err != nil {
+		slog.Warn("async thumbnail generation failed", "id", file.ID, "error", err)
+		return
+	}
+
+	thumbKey := thumbnailKey(file.StorageKey)
+	if err := s.storage.Put(ctx, thumbKey, bytes.NewReader(data), int64(len(data))); err != nil {
+		slog.Error("failed to store thumbnail", "id", file.ID, "key", thumbKey, "error", err)
+		return
+	}
+
+	if err := s.repo.SetThumbnailKey(ctx, file.ID, sql.NullString{String: thumbKey, Valid: true}); err != nil {
+		slog.Error("failed to persist thumbnail_key", "id", file.ID, "error", err)
+		_ = s.storage.Delete(ctx, thumbKey)
+		return
+	}
+
+	slog.Info("thumbnail generated", "id", file.ID, "key", thumbKey)
 }
 
 func (s *Service) GetByID(ctx context.Context, id, ownerID string) (FileResult, error) {
@@ -337,6 +378,12 @@ func (s *Service) PermanentDelete(ctx context.Context, id, ownerID string) error
 		slog.Error("failed to delete file from storage", "key", file.StorageKey, "error", err)
 	}
 
+	if file.ThumbnailKey.Valid && file.ThumbnailKey.String != "" {
+		_ = s.storage.Delete(ctx, file.ThumbnailKey.String)
+	} else {
+		_ = s.storage.Delete(ctx, thumbnailKey(file.StorageKey))
+	}
+
 	if err := s.repo.PermanentDelete(ctx, db.PermanentDeleteFileParams{
 		ID:      id,
 		OwnerID: ownerID,
@@ -435,6 +482,138 @@ func (s *Service) GetStorageKey(ctx context.Context, id, ownerID string) (string
 		return "", ErrNotFound
 	}
 	return file.StorageKey, nil
+}
+
+// thumbnailKey derives the storage key for a file's cached thumbnail.
+func thumbnailKey(storageKey string) string {
+	return storageKey + ".thumb.jpg"
+}
+func thumbnailKind(mimeType string) PreviewKind {
+	switch {
+	case strings.HasPrefix(mimeType, "image/"):
+		return PreviewKindImage
+	case strings.HasPrefix(mimeType, "video/"):
+		return PreviewKindVideo
+	case mimeType == "application/pdf":
+		return PreviewKindPDF
+	default:
+		return PreviewKindOther
+	}
+}
+
+func (s *Service) Thumbnail(ctx context.Context, id, ownerID string) ([]byte, error) {
+	file, err := s.repo.GetByIDAndOwner(ctx, id, ownerID)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+
+	kind := thumbnailKind(file.MimeType)
+	if kind == PreviewKindOther {
+		return nil, ErrNoThumbnail
+	}
+
+	thumbKey := thumbnailKey(file.StorageKey)
+	if file.ThumbnailKey.Valid && file.ThumbnailKey.String != "" {
+		thumbKey = file.ThumbnailKey.String
+	}
+
+	if reader, err := s.storage.Get(ctx, thumbKey); err == nil {
+		defer reader.Close()
+		data, err := io.ReadAll(reader)
+		if err == nil && len(data) > 0 {
+			return data, nil
+		}
+	}
+
+	data, err := s.generateThumbnail(ctx, file, kind)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.storage.Put(ctx, thumbKey, bytes.NewReader(data), int64(len(data))); err != nil {
+		slog.Warn("failed to cache thumbnail", "key", thumbKey, "error", err)
+	} else if !file.ThumbnailKey.Valid {
+		if err := s.repo.SetThumbnailKey(ctx, file.ID, sql.NullString{String: thumbKey, Valid: true}); err != nil {
+			slog.Warn("failed to persist thumbnail_key on lazy gen", "id", file.ID, "error", err)
+		}
+	}
+
+	return data, nil
+}
+
+func (s *Service) generateThumbnail(ctx context.Context, file db.File, kind PreviewKind) ([]byte, error) {
+	switch kind {
+	case PreviewKindImage:
+		reader, err := s.storage.Get(ctx, file.StorageKey)
+		if err != nil {
+			return nil, err
+		}
+		defer reader.Close()
+		data, err := thumbnail.FromImage(reader)
+		if err != nil {
+			slog.Warn("image thumbnail failed", "id", file.ID, "error", err)
+			return nil, ErrNoThumbnail
+		}
+		return data, nil
+
+	case PreviewKindVideo, PreviewKindPDF:
+		srcPath, cleanup, err := s.localSourcePath(ctx, file.StorageKey)
+		if err != nil {
+			return nil, err
+		}
+		defer cleanup()
+
+		var data []byte
+		if kind == PreviewKindVideo {
+			data, err = thumbnail.FromVideo(srcPath, s.thumbOpts.FfmpegPath)
+		} else {
+			data, err = thumbnail.FromPDF(srcPath, s.thumbOpts.PdftoppmPath)
+		}
+		if err != nil {
+			if errors.Is(err, thumbnail.ErrToolUnavailable) {
+				return nil, ErrNoThumbnail
+			}
+			slog.Warn("thumbnail generation failed", "id", file.ID, "kind", kind, "error", err)
+			return nil, ErrNoThumbnail
+		}
+		return data, nil
+
+	default:
+		return nil, ErrNoThumbnail
+	}
+}
+
+func (s *Service) localSourcePath(ctx context.Context, storageKey string) (string, func(), error) {
+	noop := func() {}
+
+	if path, err := s.storage.Path(storageKey); err == nil {
+		return path, noop, nil
+	}
+
+	reader, err := s.storage.Get(ctx, storageKey)
+	if err != nil {
+		return "", noop, err
+	}
+	defer reader.Close()
+
+	ext := filepath.Ext(storageKey)
+	tmp, err := os.CreateTemp("", "cribyte-thumb-*"+ext)
+	if err != nil {
+		return "", noop, err
+	}
+	cleanup := func() {
+		tmp.Close()
+		os.Remove(tmp.Name())
+	}
+	if _, err := io.Copy(tmp, reader); err != nil {
+		cleanup()
+		return "", noop, err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmp.Name())
+		return "", noop, err
+	}
+	return tmp.Name(), func() { os.Remove(tmp.Name()) }, nil
 }
 
 func (s *Service) GetMimeType(ctx context.Context, id, ownerID string) (string, error) {

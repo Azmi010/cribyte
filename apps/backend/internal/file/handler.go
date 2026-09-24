@@ -288,6 +288,45 @@ func (h *Handler) ServeContent(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filePath)
 }
 
+// Thumbnail godoc
+// @Summary Get file thumbnail
+// @Description Get a small JPEG thumbnail for image, video, or PDF files. Generated and cached on first request.
+// @Tags files
+// @Produce jpeg
+// @Security SessionAuth
+// @Param id path string true "File ID"
+// @Success 200 {file} binary
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/files/{id}/thumbnail [get]
+func (h *Handler) Thumbnail(w http.ResponseWriter, r *http.Request) {
+	user, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+
+	data, err := h.svc.Thumbnail(r.Context(), id, user.ID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrNotFound):
+			writeError(w, http.StatusNotFound, err.Error())
+		case errors.Is(err, ErrNoThumbnail):
+			writeError(w, http.StatusNotFound, "no thumbnail available")
+		default:
+			writeError(w, http.StatusInternalServerError, "internal error")
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	w.Header().Set("Cache-Control", "private, max-age=86400")
+	_, _ = w.Write(data)
+}
+
 // Rename godoc
 // @Summary Rename a file
 // @Description Rename a file. Auto-resolves name conflicts.

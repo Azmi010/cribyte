@@ -23,6 +23,7 @@ type File struct {
 	OwnerID        string         `json:"owner_id"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
+	ThumbnailKey   sql.NullString `json:"thumbnail_key"`
 }
 
 type Folder struct {

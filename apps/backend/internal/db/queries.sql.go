@@ -15,7 +15,7 @@ const createFile = `-- name: CreateFile :one
 
 INSERT INTO files (id, name, mime_type, size, storage_key, extension, parent_folder_id, owner_id, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at
+RETURNING id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at, thumbnail_key
 `
 
 type CreateFileParams struct {
@@ -62,6 +62,7 @@ func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) (File, e
 		&i.OwnerID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ThumbnailKey,
 	)
 	return i, err
 }
@@ -272,7 +273,7 @@ func (q *Queries) GetExistingFolderNamesInRoot(ctx context.Context, ownerID stri
 }
 
 const getFileByID = `-- name: GetFileByID :one
-SELECT id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at FROM files
+SELECT id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at, thumbnail_key FROM files
 WHERE id = ?
 `
 
@@ -293,12 +294,13 @@ func (q *Queries) GetFileByID(ctx context.Context, id string) (File, error) {
 		&i.OwnerID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ThumbnailKey,
 	)
 	return i, err
 }
 
 const getFileByIDAndOwner = `-- name: GetFileByIDAndOwner :one
-SELECT id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at FROM files
+SELECT id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at, thumbnail_key FROM files
 WHERE id = ? AND owner_id = ?
 `
 
@@ -324,6 +326,7 @@ func (q *Queries) GetFileByIDAndOwner(ctx context.Context, arg GetFileByIDAndOwn
 		&i.OwnerID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ThumbnailKey,
 	)
 	return i, err
 }
@@ -500,7 +503,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 }
 
 const listFilesByParent = `-- name: ListFilesByParent :many
-SELECT id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at FROM files
+SELECT id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at, thumbnail_key FROM files
 WHERE owner_id = ? AND parent_folder_id = ? AND deleted = false
 ORDER BY name ASC
 `
@@ -533,6 +536,7 @@ func (q *Queries) ListFilesByParent(ctx context.Context, arg ListFilesByParentPa
 			&i.OwnerID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ThumbnailKey,
 		); err != nil {
 			return nil, err
 		}
@@ -592,7 +596,7 @@ func (q *Queries) ListFoldersByParent(ctx context.Context, arg ListFoldersByPare
 }
 
 const listRootFiles = `-- name: ListRootFiles :many
-SELECT id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at FROM files
+SELECT id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at, thumbnail_key FROM files
 WHERE owner_id = ? AND parent_folder_id IS NULL AND deleted = false
 ORDER BY name ASC
 `
@@ -620,6 +624,7 @@ func (q *Queries) ListRootFiles(ctx context.Context, ownerID string) ([]File, er
 			&i.OwnerID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ThumbnailKey,
 		); err != nil {
 			return nil, err
 		}
@@ -674,7 +679,7 @@ func (q *Queries) ListRootFolders(ctx context.Context, ownerID string) ([]Folder
 }
 
 const listStarredFiles = `-- name: ListStarredFiles :many
-SELECT id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at FROM files
+SELECT id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at, thumbnail_key FROM files
 WHERE owner_id = ? AND starred = true AND deleted = false
 ORDER BY name ASC
 `
@@ -702,6 +707,7 @@ func (q *Queries) ListStarredFiles(ctx context.Context, ownerID string) ([]File,
 			&i.OwnerID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ThumbnailKey,
 		); err != nil {
 			return nil, err
 		}
@@ -756,7 +762,7 @@ func (q *Queries) ListStarredFolders(ctx context.Context, ownerID string) ([]Fol
 }
 
 const listTrashFiles = `-- name: ListTrashFiles :many
-SELECT id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at FROM files
+SELECT id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at, thumbnail_key FROM files
 WHERE owner_id = ? AND deleted = true
 ORDER BY deleted_at DESC
 `
@@ -784,6 +790,7 @@ func (q *Queries) ListTrashFiles(ctx context.Context, ownerID string) ([]File, e
 			&i.OwnerID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ThumbnailKey,
 		); err != nil {
 			return nil, err
 		}
@@ -841,7 +848,7 @@ const moveFile = `-- name: MoveFile :one
 UPDATE files
 SET parent_folder_id = ?, updated_at = ?
 WHERE id = ? AND owner_id = ?
-RETURNING id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at
+RETURNING id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at, thumbnail_key
 `
 
 type MoveFileParams struct {
@@ -873,6 +880,7 @@ func (q *Queries) MoveFile(ctx context.Context, arg MoveFileParams) (File, error
 		&i.OwnerID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ThumbnailKey,
 	)
 	return i, err
 }
@@ -947,7 +955,7 @@ const renameFile = `-- name: RenameFile :one
 UPDATE files
 SET name = ?, extension = ?, updated_at = ?
 WHERE id = ? AND owner_id = ?
-RETURNING id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at
+RETURNING id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at, thumbnail_key
 `
 
 type RenameFileParams struct {
@@ -981,6 +989,7 @@ func (q *Queries) RenameFile(ctx context.Context, arg RenameFileParams) (File, e
 		&i.OwnerID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ThumbnailKey,
 	)
 	return i, err
 }
@@ -1025,7 +1034,7 @@ const restoreFile = `-- name: RestoreFile :one
 UPDATE files
 SET deleted = false, deleted_at = NULL, updated_at = ?
 WHERE id = ? AND owner_id = ?
-RETURNING id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at
+RETURNING id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at, thumbnail_key
 `
 
 type RestoreFileParams struct {
@@ -1051,6 +1060,7 @@ func (q *Queries) RestoreFile(ctx context.Context, arg RestoreFileParams) (File,
 		&i.OwnerID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ThumbnailKey,
 	)
 	return i, err
 }
@@ -1086,7 +1096,7 @@ func (q *Queries) RestoreFolder(ctx context.Context, arg RestoreFolderParams) (F
 }
 
 const searchFilesByName = `-- name: SearchFilesByName :many
-SELECT id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at FROM files
+SELECT id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at, thumbnail_key FROM files
 WHERE owner_id = ? AND deleted = false AND name LIKE ?
 ORDER BY name ASC
 `
@@ -1119,6 +1129,7 @@ func (q *Queries) SearchFilesByName(ctx context.Context, arg SearchFilesByNamePa
 			&i.OwnerID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ThumbnailKey,
 		); err != nil {
 			return nil, err
 		}
@@ -1137,7 +1148,7 @@ const setFileStarred = `-- name: SetFileStarred :one
 UPDATE files
 SET starred = ?, updated_at = ?
 WHERE id = ? AND owner_id = ?
-RETURNING id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at
+RETURNING id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at, thumbnail_key
 `
 
 type SetFileStarredParams struct {
@@ -1169,8 +1180,25 @@ func (q *Queries) SetFileStarred(ctx context.Context, arg SetFileStarredParams) 
 		&i.OwnerID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ThumbnailKey,
 	)
 	return i, err
+}
+
+const setFileThumbnailKey = `-- name: SetFileThumbnailKey :exec
+UPDATE files
+SET thumbnail_key = ?
+WHERE id = ?
+`
+
+type SetFileThumbnailKeyParams struct {
+	ThumbnailKey sql.NullString `json:"thumbnail_key"`
+	ID           string         `json:"id"`
+}
+
+func (q *Queries) SetFileThumbnailKey(ctx context.Context, arg SetFileThumbnailKeyParams) error {
+	_, err := q.db.ExecContext(ctx, setFileThumbnailKey, arg.ThumbnailKey, arg.ID)
+	return err
 }
 
 const setFolderStarred = `-- name: SetFolderStarred :one
@@ -1213,7 +1241,7 @@ const softDeleteFile = `-- name: SoftDeleteFile :one
 UPDATE files
 SET deleted = true, deleted_at = ?, updated_at = ?
 WHERE id = ? AND owner_id = ?
-RETURNING id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at
+RETURNING id, name, mime_type, size, storage_key, extension, starred, deleted, deleted_at, parent_folder_id, owner_id, created_at, updated_at, thumbnail_key
 `
 
 type SoftDeleteFileParams struct {
@@ -1245,6 +1273,7 @@ func (q *Queries) SoftDeleteFile(ctx context.Context, arg SoftDeleteFileParams) 
 		&i.OwnerID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ThumbnailKey,
 	)
 	return i, err
 }

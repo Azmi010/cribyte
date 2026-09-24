@@ -182,6 +182,11 @@ SET starred = ?, updated_at = ?
 WHERE id = ? AND owner_id = ?
 RETURNING *;
 
+-- name: SetFileThumbnailKey :exec
+UPDATE files
+SET thumbnail_key = ?
+WHERE id = ?;
+
 -- name: ListStarredFiles :many
 SELECT * FROM files
 WHERE owner_id = ? AND starred = true AND deleted = false
