@@ -39,6 +39,10 @@ export function serveUrl(id: string): string {
   return `${API_BASE}/files/${id}/serve`;
 }
 
+export function thumbnailUrl(id: string): string {
+  return `${API_BASE}/files/${id}/thumbnail`;
+}
+
 export function downloadUrl(id: string): string {
   return `${API_BASE}/files/${id}/download`;
 }

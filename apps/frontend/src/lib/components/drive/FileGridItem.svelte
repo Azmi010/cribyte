@@ -8,6 +8,7 @@
   
   import type { FileItem } from '$lib/types';
   import { formatFileSize, getPreviewKind } from '$lib/constants';
+  import * as filesApi from '$lib/api/files';
   
   let {
     file,
@@ -30,6 +31,14 @@
 
   let previewKind = $derived(getPreviewKind(file.mime_type));
   let extLabel = $derived(file.extension ? file.extension.toUpperCase() : 'FILE');
+
+  let hasThumbnail = $derived(file.has_thumbnail);
+  let thumbError = $state(false);
+
+  $effect(() => {
+    void file.id;
+    thumbError = false;
+  });
 </script>
 
 <div
@@ -51,7 +60,21 @@
       </div>
     {/if}
 
-    {#if previewKind === 'pdf'}
+    {#if hasThumbnail && !thumbError}
+      <img
+        src={filesApi.thumbnailUrl(file.id)}
+        alt={file.name}
+        loading="lazy"
+        class="w-full h-full object-cover"
+        onerror={() => (thumbError = true)}
+        draggable="false"
+      />
+      {#if previewKind === 'video'}
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <PlayCircle class="size-10 text-white drop-shadow-lg opacity-90" />
+        </div>
+      {/if}
+    {:else if previewKind === 'pdf'}
       <div class="flex flex-col items-center gap-2">
         <FileText class="size-8 text-red-500" />
         <span class="text-[10px] tracking-wider px-1.5 py-0.5 rounded bg-muted/60 border border-border/50 uppercase font-mono font-semibold text-red-500">PDF</span>

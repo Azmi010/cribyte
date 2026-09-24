@@ -22,6 +22,7 @@ export interface FileItem {
   size: number;
   extension: string | null;
   starred: boolean;
+  has_thumbnail: boolean;
   parent_folder_id: string | null;
   owner_id: string;
   created_at: string;
