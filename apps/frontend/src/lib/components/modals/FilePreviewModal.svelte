@@ -194,10 +194,10 @@
           </button>
         </div>
       {:else if preview}
-        {#if preview.kind === "image" && preview.signed_url}
+        {#if preview.kind === "image"}
           <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
           <img
-            src={preview.signed_url}
+            src={filesApi.serveUrl(item.id)}
             alt={item.name}
             class="max-w-full max-h-full object-contain select-none"
             class:cursor-grab={zoom > 1}
@@ -230,9 +230,9 @@
             <audio src={filesApi.serveUrl(item.id)} controls class="w-full max-w-md" preload="metadata"></audio>
           </div>
 
-        {:else if preview.kind === "pdf" && preview.signed_url}
+        {:else if preview.kind === "pdf"}
           <iframe
-            src={preview.signed_url}
+            src={filesApi.serveUrl(item.id)}
             title={item.name}
             class="w-full h-full border-0"
           ></iframe>
